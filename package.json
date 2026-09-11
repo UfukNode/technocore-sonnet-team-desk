@@ -1,0 +1,21 @@
+{
+  "name": "technocore-sonnet-team-desk",
+  "version": "1.0.0",
+  "description": "Bilingual browser workspace for the FLOP Technocore Sonnet Challenge.",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "start": "node scripts/start.js",
+    "test": "node --test test/*.test.js",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "lucide": "^0.468.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
+  }
+}

@@ -47,6 +47,10 @@ const i18n = {
     stepFour: "Step 4", publishSubmitVote: "Publish, submit and vote", finalPoem: "Final poem", notChecked: "Not checked", exactFrozenPoem: "Exact frozen poem",
     finalVersion: "Final version", xPostIds: "X post IDs, one per line", checkPoem: "Check poem", openX: "Open X", submitPoem: "Submit poem",
     finishAndSubmit: "Finish and submit", voteHeading: "Read the entries and vote", voteNav: "Vote", stepFive: "Step 5",
+    xPostLinks: "X post links, one per line",
+    postLinkHint: "The account that wrote the last word publishes the poem on X, then pastes the link of each post here, in reading order.",
+    wrongAccount: "This link is not the registered account. The referee refuses the submission:",
+    submitNote: "Only the writer of the last word publishes and submits. Every link must be on that one account: a teammate posting from their own account does not count. Their X account is fixed at registration and cannot be changed later.",
     onePost: "One post, it fits", postsInOrder: "posts, in this order", copy: "Copy", copied: "Post copied.",
     poemAutoFilled: "The accepted poem was filled in for you. Check it, publish it, then paste the post IDs.",
     publicEntries: "Public entries", noEntries: "No accepted entries found.", entryId: "Entry ID", castVote: "Sign public ballot", finalStage: "Final stage",
@@ -88,6 +92,10 @@ const i18n = {
     stepFour: "Adım 4", publishSubmitVote: "Yayımla, gönder ve oy ver", finalPoem: "Son şiir", notChecked: "Kontrol edilmedi", exactFrozenPoem: "Kilitlemiş şiirin tam metni",
     finalVersion: "Son sürüm", xPostIds: "X post ID'leri, her satıra bir tane", checkPoem: "Şiiri kontrol et", openX: "X'i aç", submitPoem: "Şiiri gönder",
     finishAndSubmit: "Bitir ve gönder", voteHeading: "Katılımları oku ve oy ver", voteNav: "Oy ver", stepFive: "Adım 5",
+    xPostLinks: "X gönderi linkleri, her satıra bir tane",
+    postLinkHint: "Son kelimeyi yazan hesap şiiri X'te paylaşır, sonra her gönderinin linkini buraya okuma sırasıyla yapıştırır.",
+    wrongAccount: "Bu link kayıtlı hesaba ait değil. Hakem gönderimi reddeder:",
+    submitNote: "Şiiri sadece son kelimeyi yazan paylaşır ve sadece o gönderim yapabilir. Bütün linkler o tek hesaptan olmalı: takım arkadaşının kendi hesabından paylaşması saymaz. O kişinin X hesabı kayıtta sabitlenir, sonradan değiştirilemez.",
     onePost: "Tek gönderi, sığıyor", postsInOrder: "gönderi, bu sırayla", copy: "Kopyala", copied: "Gönderi kopyalandı.",
     poemAutoFilled: "Kabul edilen şiir sizin için dolduruldu. Kontrol edin, paylaşın, sonra post ID'lerini yapıştırın.",
     publicEntries: "Açık katılımlar", noEntries: "Kabul edilmiş katılım bulunamadı.", entryId: "Katılım ID", castVote: "Açık oyu imzala", finalStage: "Son aşama",
@@ -1083,13 +1091,45 @@ function syncSubmissionFromRoom() {
 
 function renderSubmissionButton() {
   const ids = parsePostIds($("#xPostIds").value);
+  // The referee requires every post to be on the account the final contributor
+  // registered, and refuses the whole submission otherwise. Cheaper to say so
+  // here than to spend a request_id finding out.
+  const registered = String(state.registration?.x_account_url || "").split("/").filter(Boolean).pop() || "";
+  const wrong = registered ? parsePostHandles($("#xPostIds").value).filter((handle) => handle.toLowerCase() !== registered.toLowerCase()) : [];
+  const note = $("#postLinkNote");
+  if (note) {
+    note.textContent = wrong.length ? `${t("wrongAccount")} @${wrong[0]}` : "";
+    note.classList.toggle("warn", wrong.length > 0);
+  }
   const finalVersion = Number($("#finalVersion").value);
   const isLast = !state.currentState.lastContributor || state.currentState.lastContributor === state.did;
   $("#submitPoemButton").disabled = !(state.did && state.poem.valid && ids.length && finalVersion >= 1 && state.team.generation > 0 && isLast && phase() === "live");
 }
 
+/**
+ * Reads the post links people actually paste.
+ *
+ * The `status/` path is looked for first. Taking the first long number in the
+ * string instead pulls the digits out of a handle: given
+ * x.com/user12345/status/1966..., the earlier match wins and the submission
+ * carries "12345" as its post id.
+ *
+ * A bare id is still accepted, since that is what the field used to ask for.
+ */
 function parsePostIds(value) {
-  return String(value).split(/\s+/).map((item) => item.match(/(?:status\/)?([0-9]{5,30})/)?.[1] || "").filter(Boolean);
+  return String(value).split(/\s+/).map((item) => {
+    const fromUrl = item.match(/status\/([0-9]{5,30})/);
+    if (fromUrl) return fromUrl[1];
+    const bare = item.match(/^[0-9]{5,30}$/);
+    return bare ? bare[0] : "";
+  }).filter(Boolean);
+}
+
+/** The handles in the pasted links, so a post from the wrong account is caught here. */
+function parsePostHandles(value) {
+  return String(value).split(/\s+/)
+    .map((item) => item.match(/(?:x|twitter)\.com\/([A-Za-z0-9_]{1,15})\/status\//)?.[1] || "")
+    .filter(Boolean);
 }
 
 async function register() {

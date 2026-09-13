@@ -218,10 +218,13 @@
               <div id="lineChecks" class="line-checks"></div>
               <div class="submission-fields">
                 <label class="field"><span data-i18n="finalVersion">Final version</span><input id="finalVersion" type="number" min="1"></label>
-                <label class="field"><span data-i18n="xPostIds">X post IDs, one per line</span><textarea id="xPostIds" rows="3" spellcheck="false"></textarea></label>
+                <label class="field"><span data-i18n="xPostLinks">X post links, one per line</span><textarea id="xPostIds" rows="3" spellcheck="false" placeholder="https://x.com/handle/status/1966..."></textarea></label>
+                <p id="postLinkHint" class="field-hint" data-i18n="postLinkHint">The account that wrote the last word publishes the poem on X, then pastes the link of each post here, in reading order.</p>
+                <p id="postLinkNote" class="field-hint"></p>
               </div>
               <div id="publishPlan" class="publish-plan hidden"></div>
               <div class="hash-row"><span>SHA-256</span><code id="poemHash">-</code></div>
+              <p class="submit-note" data-i18n="submitNote">Only the writer of the last word publishes and submits. Every link must be on that one account: a teammate posting from their own account does not count. Their X account is fixed at registration and cannot be changed later.</p>
               <div class="button-row">
                 <button id="preparePoemButton" class="secondary" type="button"><i data-lucide="scan-check"></i><span data-i18n="checkPoem">Check poem</span></button>
                 <a id="openXButton" class="button secondary disabled" href="#" target="_blank" rel="noreferrer"><i data-lucide="external-link"></i><span data-i18n="openX">Open X</span></a>

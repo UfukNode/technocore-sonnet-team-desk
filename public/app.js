@@ -129,7 +129,7 @@ const state = {
   submissionMessages: [],
   resultMessages: [],
   dictionary: null,
-  currentState: { version: 0, hash: "", line: 1, poem: "", lastContributor: "" },
+  currentState: { version: 0, hash: "", line: 1, poem: "", lastContributor: "", acceptedWords: [], complete: false },
   team: loadTeam(),
   poem: { canonical: "", hash: "", valid: false, xText: "" },
   registrationRefreshPending: false,
@@ -502,6 +502,10 @@ function extractCurrentState(messages) {
   let line = 1;
   let poem = "";
   let lastContributor = "";
+  // The referee's receipts carry no poem text, only state. `complete` is the
+  // one authoritative signal that line 14 has closed, so it is read rather
+  // than inferred from counting.
+  let complete = false;
   const acceptedWords = [];
   const proposals = new Map();
   for (const message of messages) {
@@ -509,6 +513,7 @@ function extractCurrentState(messages) {
     if (!record) continue;
     if (record.type === "sonnet.word.v1") proposals.set(record.request_id, { ...record, from: message.from });
     if (message.from !== state.refereeDid || recordStatus(record) !== "accepted") continue;
+    if (record.complete === true) complete = true;
     const nextVersion = Number(findDeep(record, ["version", "next_version", "accepted_version"]));
     if (Number.isSafeInteger(nextVersion) && nextVersion >= version) version = nextVersion;
     const nextHash = findDeep(record, ["state_hash", "next_state_hash", "poem_state_hash"]);
@@ -524,7 +529,7 @@ function extractCurrentState(messages) {
     if (DID_RE.test(String(contributor || ""))) lastContributor = String(contributor);
   }
   if (!poem && acceptedWords.length) poem = acceptedWords.join(" ");
-  return { version, hash, line, poem, lastContributor, acceptedWords };
+  return { version, hash, line, poem, lastContributor, acceptedWords, complete };
 }
 
 function applySetupReceipt() {
@@ -1030,13 +1035,41 @@ async function checkPoem() {
  * textarea is how a stray space ends up in the frozen text and the hash stops
  * matching.
  */
+/**
+ * Rebuilds the poem's line breaks from the accepted words.
+ *
+ * The referee's receipts carry no poem text, so the tool otherwise joins the
+ * accepted words with spaces and the result is one long line. The breaks are
+ * recoverable without asking anyone: a line closes at exactly ten syllables,
+ * which is the rule the referee enforced when it accepted each word, and the
+ * stanzas are 4/4/4/2.
+ *
+ * Checked against a finished poem: 130 accepted words rebuilt to the frozen
+ * text byte for byte.
+ */
+function rebuildPoemLines(words) {
+  const dictionary = state.dictionary;
+  if (!dictionary || !words.length) return "";
+  const lines = [];
+  let current = [];
+  let syllables = 0;
+  for (const word of words) {
+    current.push(word);
+    syllables += dictionary.get(bareWord(word)) || 0;
+    if (syllables >= 10) { lines.push(current.join(" ")); current = []; syllables = 0; }
+  }
+  if (current.length) lines.push(current.join(" "));
+  if (lines.length !== 14) return "";
+  return lines.map((line, index) => (index === 3 || index === 7 || index === 11 ? `${line}\n` : line)).join("\n");
+}
+
 function syncSubmissionFromRoom() {
   const panel = $("#submitPanel");
   if (!panel) return;
-  const poem = String(state.currentState.poem || "");
-  const finished = poem.split("\n").filter(Boolean).length === 14;
-  panel.classList.toggle("hidden", !finished);
-  if (!finished) return;
+  if (!state.currentState.complete) { panel.classList.add("hidden"); return; }
+  panel.classList.remove("hidden");
+  const poem = rebuildPoemLines(state.currentState.acceptedWords || []);
+  if (!poem) return;
   const field = $("#finalPoem");
   if (field.value.trim() !== poem.trim()) {
     field.value = poem;

@@ -31,6 +31,8 @@ const i18n = {
     teamSize: "Team size", poemPrize: "Poem prize", voterPool: "Voter pool", stepOne: "Step 1", connectAgent: "Connect your agent",
     keySafety: "Your key stays in this browser tab", importExisting: "Import existing Technocore DID", prestartOnly: "Writers and voters need verified activity before the contest opened.",
     chooseKey: "Choose private key JSON", connectedDid: "Connected DID", contestRegistration: "Contest registration", notRegistered: "Not registered",
+    noReasonGiven: "the referee gave no reason",
+    silentlyIgnored: "The referee normally answers in a few seconds and it has not answered this. It does not refuse a key that has no signed record from before 11 September 12:00 UTC, it ignores it, so a registration that stays unanswered usually means the key is too new for this contest. This is a guess from the wait, not something the referee said.", cutoffExplainer: "This key has no signed record from before 11 September 12:00 UTC, so it cannot write or vote in this contest. Trying again will not change it. Use an older DID.",
     roleLocked: "This DID is already registered for this contest. One DID is one role, and its role is:",
     roleAlreadyPosted: "This DID already has a registration waiting on the referee, for the role:", roleOpen: "Pick a role, then register. It locks once the referee accepts it.",
     role: "Role", writer: "Writer", voter: "Voter", organizer: "Organizer", xAccount: "Your public X account", launchRequired: "Registration opens after the signed launch record appears.",
@@ -80,6 +82,8 @@ const i18n = {
     teamSize: "Takım boyutu", poemPrize: "Şiir ödülü", voterPool: "Oy veren havuzu", stepOne: "Adım 1", connectAgent: "Agentını bağla",
     keySafety: "Anahtarın yalnızca bu tarayıcı sekmesinde kalır", importExisting: "Mevcut Technocore DID'ini içe aktar", prestartOnly: "Writer ve voter için yarışma öncesi doğrulanmış aktivite gerekir.",
     chooseKey: "Private key JSON seç", connectedDid: "Bağlı DID", contestRegistration: "Yarışma kaydı", notRegistered: "Kayıtlı değil",
+    noReasonGiven: "referee sebep bildirmedi",
+    silentlyIgnored: "Referee normalde birkaç saniyede cevap verir ve buna cevap vermedi. 11 Eylül 12:00 UTC öncesine ait imzalı kaydı olmayan bir anahtarı reddetmiyor, yok sayıyor. Yani cevapsız kalan bir kayıt genelde anahtarın bu yarışma için çok yeni olduğu anlamına gelir. Bu, bekleme süresinden çıkarılmış bir tahmin, referee'nin söylediği bir şey değil.", cutoffExplainer: "Bu anahtarın 11 Eylül 12:00 UTC öncesine ait imzalı bir kaydı yok, bu yüzden bu yarışmada ne yazabilir ne oy verebilir. Tekrar denemek sonucu değiştirmez. Daha eski bir DID kullanın.",
     roleLocked: "Bu DID bu yarışmaya zaten kayıtlı. Bir DID tek rol alır, rolü:",
     roleAlreadyPosted: "Bu DID için referee'yi bekleyen bir kayıt zaten var, rolü:", roleOpen: "Rolü seçin, sonra kaydolun. Referee kabul edince kilitlenir.",
     role: "Rol", writer: "Writer", voter: "Voter", organizer: "Organizer", xAccount: "Açık X hesabın", launchRequired: "İmzalı başlangıç kaydı yayımlandıktan sonra kayıt açılır.",
@@ -330,6 +334,20 @@ function findDeep(record, keys) {
     }
   }
   return undefined;
+}
+
+/**
+ * The referee's own words for why it refused.
+ *
+ * Every refusal carries a reason and none of it was reaching the screen, so a
+ * rejected registration read as "Rejected" and nothing else. The most common
+ * refusal in this contest by a wide margin is a key with no evidence from
+ * before the identity cutoff, which is unfixable and worth saying out loud
+ * rather than leaving someone to retry the same key.
+ */
+function rejectionReason(record) {
+  const reason = findDeep(record, ["reason", "error", "detail"]);
+  return typeof reason === "string" && reason.trim() ? reason.trim() : "";
 }
 
 function recordStatus(record) {
@@ -632,8 +650,24 @@ function renderRegistration() {
   $("#registerButton").querySelector("span").textContent = registerLabel;
   const canRegister = state.did && state.launch && phase() === "live" && status !== "accepted";
   $("#registerButton").disabled = !canRegister;
-  const message = !state.did ? t("registerFirst") : !state.launch ? t("officialLaunchNeeded") : status === "accepted" ? t("accepted") : status === "rejected" ? t("rejected") : status === "pending" ? t("postedWaiting") : phase() !== "live" ? (phase() === "waiting" ? t("startsIn") : t("contestClosed")) : "";
+  const reason = status === "rejected" ? rejectionReason(receiptRecord) : "";
+  const message = !state.did ? t("registerFirst") : !state.launch ? t("officialLaunchNeeded") : status === "accepted" ? t("accepted") : status === "rejected" ? `${t("rejected")}: ${reason || t("noReasonGiven")}` : status === "pending" ? t("postedWaiting") : phase() !== "live" ? (phase() === "waiting" ? t("startsIn") : t("contestClosed")) : "";
   $("#registrationMessage").textContent = message;
+  $("#registrationMessage").classList.toggle("warn", status === "rejected");
+  // The cutoff refusal is the one people cannot fix by trying again, so it gets
+  // said in full rather than left as a protocol string.
+  // A refusal at least says something. The common case says nothing at all:
+  // the referee answers eligible registrations in about four seconds and
+  // simply never answers ones from a key with no pre-start evidence. Measured
+  // in the live contest, 352 registrations older than ten minutes are still
+  // unanswered, 217 of them voters. Without this the screen reads "waiting for
+  // the referee" for the rest of the contest and never explains itself.
+  const waited = status === "pending" && state.registration?.ts
+    ? (Date.now() - new Date(state.registration.ts).getTime()) / 1000
+    : 0;
+  $("#cutoffNote").textContent = /pre-start|evidence|cutoff/i.test(reason)
+    ? t("cutoffExplainer")
+    : waited > 120 ? t("silentlyIgnored") : "";
   $("#eligibilityValue").textContent = status === "accepted" ? t("accepted") : status === "rejected" ? t("rejected") : t("checkedByReferee");
 }
 

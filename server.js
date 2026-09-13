@@ -3,7 +3,7 @@
 const fs = require("node:fs/promises");
 const http = require("node:http");
 const path = require("node:path");
-const { DID_RE } = require("./lib/protocol");
+const { DID_RE, acceptedWords } = require("./lib/protocol");
 
 const TECHNOCORE = "https://technocore.chat";
 const ROOM_RE = /^[a-z0-9][a-z0-9_-]{0,47}$/;
@@ -113,6 +113,46 @@ async function proxyRead(requestUrl, response, room) {
   }
 }
 
+/**
+ * Returns the accepted words of a team room, in order.
+ *
+ * The vote list shows every entry's poem, and rebuilding one needs each accepted
+ * word. The words live in the proposals, not in the receipts, so the client used
+ * to read whole team rooms and do the join itself. That reads badly: a room is
+ * mostly refused attempts, and the busiest room on the board carries 1,953
+ * proposals and 1,374 refusals to yield 119 accepted words, so the client was
+ * downloading two megabytes to keep two kilobytes of it, twenty-eight times over
+ * on one screen. Worse, the read was capped at the newest 800 matching lines, so
+ * that room came back with its opening words missing and its poem simply would
+ * not rebuild.
+ *
+ * Doing the join here sends the 119 words and nothing else, and the cap stops
+ * mattering because the whole export is walked. It does not ask the client to
+ * trust this server: the caller hashes the poem it rebuilds and compares it with
+ * the poem_sha256 the referee signed, so a wrong word list fails that check the
+ * same as before.
+ */
+async function proxyPoemWords(requestUrl, response, room) {
+  const referee = requestUrl.searchParams.get("referee") || "";
+  if (!DID_RE.test(referee)) throw new Error("A referee DID is required.");
+  const upstream = await fetchWithTimeout(`${TECHNOCORE}/r/${encodeURIComponent(room)}/export`);
+  const text = await upstream.text();
+  if (!upstream.ok) {
+    sendJson(response, upstream.status, { ok: false, error: text || `Technocore returned ${upstream.status}.` });
+    return;
+  }
+  const words = acceptedWords(text.split("\n"), referee);
+  sendJson(response, 200, {
+    ok: true,
+    data: {
+      room,
+      generation: Number(upstream.headers.get("x-room-generation") || 0),
+      accepted: words.length,
+      words,
+    },
+  });
+}
+
 async function proxyRoomOwner(response, room) {
   const upstream = await fetchWithTimeout(`${TECHNOCORE}/kv/room-owners/${encodeURIComponent(room)}`);
   const text = await upstream.text();
@@ -163,6 +203,11 @@ async function handleApi(request, response, requestUrl) {
   if (request.method === "GET" && requestUrl.pathname === "/api/health") {
     sendJson(response, 200, { ok: true, technocore: TECHNOCORE });
     return;
+  }
+
+  const poemMatch = requestUrl.pathname.match(/^\/api\/poem-words\/([a-z0-9_-]+)$/);
+  if (request.method === "GET" && poemMatch) {
+    return proxyPoemWords(requestUrl, response, requireRoom(poemMatch[1]));
   }
 
   const ownerMatch = requestUrl.pathname.match(/^\/api\/room-owners\/([a-z0-9_-]+)$/);

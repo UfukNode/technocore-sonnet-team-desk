@@ -3,6 +3,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const {
+  acceptedWords,
   CONTEST,
   ballot,
   claim,
@@ -86,4 +87,29 @@ test("uses the configured seven-day contest window", () => {
   assert.equal(isWithinContest(new Date(CONTEST.deadline)), "live");
   assert.equal(isWithinContest(new Date("2026-09-18T12:00:01Z")), "closed");
   assert.equal(normalizeXAccount("https://twitter.com/UfukNode/"), "https://x.com/UfukNode");
+});
+
+test("recovers accepted words by pairing receipts with their proposals", () => {
+  const line = (from, record) => JSON.stringify({ from, text: JSON.stringify(record) });
+  const word = (requestId, text) => line(DIDS[0], { type: "sonnet.word.v1", contest_id: "sonnet-2", request_id: requestId, word: text });
+  const verdict = (requestId, status) => line(REFEREE, { type: "sonnet.receipt.v1", contest_id: "sonnet-2", request_id: requestId, status });
+  const lines = [
+    word("w1", "quiet"),
+    verdict("w1", "accepted"),
+    word("w2", "zzzz"),
+    verdict("w2", "rejected"),
+    word("w3", "water"),
+    verdict("w3", "accepted"),
+    verdict("w4", "accepted"),
+    line(DIDS[2], { type: "sonnet.receipt.v1", contest_id: "sonnet-2", request_id: "w2", status: "accepted" }),
+    line(REFEREE, { type: "sonnet.receipt.v1", contest_id: "sonnet-2", request_id: "roster-1", status: "accepted", roster_ready: true }),
+    "",
+    "not json at all",
+  ];
+  // Refusals drop out, and so do an acceptance for a word nobody proposed, one
+  // signed by somebody other than the referee, and the roster acceptance the
+  // referee also posts into a team room. Order follows the room.
+  assert.deepEqual(acceptedWords(lines, REFEREE), ["quiet", "water"]);
+  assert.deepEqual(acceptedWords(lines, DIDS[2]), ["zzzz"]);
+  assert.deepEqual(acceptedWords([], REFEREE), []);
 });

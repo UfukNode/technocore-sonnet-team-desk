@@ -305,6 +305,10 @@ async function readRoom(room, search = "") {
   return api(`/api/rooms/${encodeURIComponent(room)}?${query}`);
 }
 
+async function readPoemWords(room) {
+  const query = new URLSearchParams({ referee: state.refereeDid || "" });
+  return api(`/api/poem-words/${encodeURIComponent(room)}?${query}`);
+}
 async function readRoomOwner(room) {
   return api(`/api/room-owners/${encodeURIComponent(room)}`);
 }
@@ -828,9 +832,14 @@ function acceptedEntries() {
  * the words are in it, and the line breaks come back from the ten-syllable rule,
  * so the poem can be shown rather than described.
  *
+ * The accepted words come from /api/poem-words, which walks the room's export and
+ * pairs each accepted receipt with the proposal holding its word. That join used
+ * to happen here, over whole rooms, which on the busiest room meant two megabytes
+ * of refused attempts for 119 words and a read capped short of the opening lines.
+ *
  * The referee's submission carries poem_sha256. Rebuilt text is hashed and
  * compared against it, so a poem is only labelled verified when it is provably
- * the frozen one and not this tool's guess at it.
+ * the frozen one, whatever the word list arrived looking like.
  */
 async function loadEntryPoem(entry) {
   if (state.entryPoems.has(entry.entryId)) return state.entryPoems.get(entry.entryId);
@@ -838,18 +847,8 @@ async function loadEntryPoem(entry) {
   try {
     await loadDictionary();
     const room = `d-sonnet-2-team-${entry.gameId}`;
-    const data = await readRoom(room, ["sonnet.word.v1", "sonnet.receipt.v1"]);
-    const proposals = new Map();
-    const words = [];
-    for (const message of data.messages || []) {
-      const record = parseRecord(message.text);
-      if (!record) continue;
-      if (record.type === "sonnet.word.v1") proposals.set(record.request_id, record);
-      if (message.from !== state.refereeDid || recordStatus(record) !== "accepted") continue;
-      const proposal = proposals.get(referencedRequest(record));
-      const word = findDeep(record, ["accepted_word", "word"]) || proposal?.word;
-      if (word && WORD_RE.test(String(word))) words.push(String(word));
-    }
+    const data = await readPoemWords(room);
+    const words = (data.words || []).filter((word) => WORD_RE.test(String(word))).map(String);
     const poem = rebuildPoemLines(words);
     const hash = poem ? await sha256Text(poem) : "";
     const verified = Boolean(entry.poemSha256) && hash === entry.poemSha256;

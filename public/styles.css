@@ -592,6 +592,11 @@ button:disabled, .disabled { opacity: .42; pointer-events: none; }
 .field-hint { margin: 4px 0 0; font-size: 10px; line-height: 1.5; color: var(--muted); }
 .field-hint.warn { color: var(--red); }
 .submit-note { margin: 10px 0 0; padding: 9px 11px; border-left: 2px solid var(--yellow); background: rgba(242, 204, 61, 0.06); font-size: 10px; line-height: 1.6; color: var(--muted); }
+/* The eligibility note carries the one thing trying again will not fix, so it is
+   marked apart from the ordinary notes. This lived in a style attribute and the
+   page's own Content Security Policy blocked it, which cost the note its colour
+   and put an error in every visitor's console. */
+.eligibility-note { border-left-color: var(--red); background: rgba(229, 72, 77, 0.06); }
 
 /* The poem itself in the entry list. A voter is asked which poem the judges
    will pick, so the poem has to be readable here, not just its entry id.

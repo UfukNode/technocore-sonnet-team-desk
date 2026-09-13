@@ -175,3 +175,67 @@ test("completes registration, room request, and roster signing without sending t
   await page.locator("#stateHash").fill("a".repeat(64));
   await expect(page.locator("#sendWordButton")).toBeEnabled();
 });
+
+test("keeps waiting for the referee after the registration room forgets the request", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-09-11T12:10:00Z"));
+  const privateJwk = privateKeyFixture();
+  const rooms = new Map();
+  let sequence = 10;
+  let registrationEvicted = false;
+
+  const addMessage = (room, from, text, signature = "A".repeat(86)) => {
+    const message = { seq: ++sequence, ts: "2026-09-11T12:10:00.000000Z", from, text, nonce: 1, sig: signature };
+    rooms.set(room, [...(rooms.get(room) || []), message]);
+    return message;
+  };
+
+  addMessage("d-sonnet-2-rules", REFEREE, JSON.stringify({
+    type: "sonnet.launch.v1", status: "open", rooms_provisioned: true,
+    configuration: { contest_id: "sonnet-2", referee: REFEREE },
+    package: { sha256: MANIFEST_SHA256 },
+  }));
+
+  await page.route("**/api/room-owners/**", async (route) => {
+    const room = new URL(route.request().url()).pathname.split("/").at(-1);
+    await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, data: { room, owner: REFEREE } }) });
+  });
+
+  await page.route("**/api/rooms/**", async (route) => {
+    const request = route.request();
+    const room = new URL(request.url()).pathname.split("/").at(-1);
+    if (request.method() === "POST") {
+      const signed = request.postDataJSON();
+      const stored = addMessage(room, signed.did, signed.text, signed.sig);
+      await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, data: { room, count: 1, last_seq: stored.seq, messages: [stored] } }) });
+      return;
+    }
+    // The ring has turned over: the participant's own registration is gone from the
+    // room while the referee, running behind, has not answered it yet.
+    let messages = rooms.get(room) || [];
+    if (registrationEvicted) {
+      messages = messages.filter((message) => JSON.parse(message.text).type !== "sonnet.register.v1");
+    }
+    await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, data: { room, generation: 0, count: messages.length, first_seq: messages[0]?.seq ?? null, last_seq: messages.at(-1)?.seq ?? 0, messages } }) });
+  });
+
+  await page.goto("/");
+  await page.locator("#keyFile").setInputFiles({ name: "private-key.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ privateKeyJwk: privateJwk })) });
+  await expect(page.locator("#launchBadge")).toContainText("Contest live");
+  await page.locator('[data-role="voter"]').click();
+  await page.locator("#registerButton").click();
+  await expect(page.locator("#registrationState")).toContainText("waiting for referee");
+
+  // Reload with the registration no longer in the room. Without the kept copy the
+  // desk reads as never registered, and registering again would queue a second
+  // request behind the first.
+  registrationEvicted = true;
+  await page.reload();
+  await page.locator("#keyFile").setInputFiles({ name: "private-key.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ privateKeyJwk: privateJwk })) });
+  await expect(page.locator("#registrationState")).toContainText("waiting for referee");
+  await expect(page.locator("#roleLockNote")).toContainText("Voter");
+
+  // The referee answers the original request id, and that answer still lands.
+  const registration = (rooms.get("mb-sonnet-2-registration") || []).map((message) => JSON.parse(message.text)).find((record) => record.type === "sonnet.register.v1");
+  addMessage("mb-sonnet-2-registration", REFEREE, JSON.stringify({ type: "sonnet.receipt.v1", contest_id: "sonnet-2", request_id: registration.request_id, role: "voter", status: "accepted" }));
+  await expect(page.locator("#registrationState")).toHaveText("Accepted", { timeout: 20000 });
+});

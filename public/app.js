@@ -316,11 +316,15 @@ async function readRoomOwner(room) {
 async function postSigned(room, recordOrText) {
   const text = typeof recordOrText === "string" ? recordOrText : compact(recordOrText);
   const signed = await signText(room, text);
-  return api(`/api/rooms/${encodeURIComponent(room)}`, {
+  const response = await api(`/api/rooms/${encodeURIComponent(room)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(signed),
   });
+  // Handed back so a caller can keep what it just signed. The room is the record,
+  // but the room is also a ring, and a write is the one moment the sender holds the
+  // message whole.
+  return { response, message: { from: signed.did, nonce: signed.nonce, sig: signed.sig, text: signed.text, ts: new Date().toISOString() } };
 }
 
 function requestId(prefix) {
@@ -405,6 +409,37 @@ async function refreshOfficial() {
   state.refereeDid = state.launch?.refereeDid || "";
 }
 
+/**
+ * Keeps this DID's own registration across a room that has forgotten it.
+ *
+ * Only the participant's own signed message is kept, and only to recover the
+ * request id the referee's answer will name. It proves nothing on its own: the
+ * receipt still has to be read from the room and still has to be the referee's,
+ * so a tampered copy buys a wrong request id and no acceptance.
+ */
+const registrationKey = () => `sonnet-registration-${state.did}`;
+
+function rememberedRegistration() {
+  if (!state.did) return null;
+  try {
+    const saved = JSON.parse(localStorage.getItem(registrationKey()) || "null");
+    if (!saved || saved.from !== state.did || !saved.sig) return null;
+    const record = parseRecord(saved.text);
+    return record?.type === "sonnet.register.v1" && record.contest_id === CONTEST.id ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveRegistration(message) {
+  if (!state.did || message.from !== state.did) return;
+  try {
+    localStorage.setItem(registrationKey(), JSON.stringify(message));
+  } catch {
+    // Losing the copy costs the recovery above, not the registration itself.
+  }
+}
+
 async function refreshRegistration() {
   if (!state.did) {
     state.registrationMessages = [];
@@ -415,20 +450,29 @@ async function refreshRegistration() {
   }
   const room = await readRoom(ROOMS.registration, state.did);
   let messages = room.messages || [];
-  const firstRegistration = [...messages].reverse().find((message) => {
+  const ownRegistration = (list) => [...list].reverse().find((message) => {
     const record = parseRecord(message.text);
     return message.from === state.did && record?.type === "sonnet.register.v1" && record.contest_id === CONTEST.id;
   });
+  // The registration room is a ring and under the current flood it turns over in
+  // about three hours, while the referee is running half an hour behind. So a
+  // registration can age out of the room before its answer arrives, and the room
+  // is then the wrong place to keep the only copy: the screen falls back to "not
+  // registered", the obvious move is to register again, that goes to the back of
+  // the queue, and the receipt for the first attempt can no longer be recognised
+  // because the request id it answers left with the message. Keeping our own
+  // registration here means the wait survives the room forgetting it.
+  const remembered = rememberedRegistration();
+  if (remembered && !ownRegistration(messages)) messages = mergeMessages(messages, [remembered]);
+  const firstRegistration = ownRegistration(messages);
+  if (firstRegistration) saveRegistration(firstRegistration);
   const firstRequestId = parseRecord(firstRegistration?.text)?.request_id;
   if (firstRequestId) {
     const receiptRoom = await readRoom(ROOMS.registration, firstRequestId);
     messages = mergeMessages(messages, receiptRoom.messages || []);
   }
   state.registrationMessages = messages;
-  state.registration = [...state.registrationMessages].reverse().find((message) => {
-    const record = parseRecord(message.text);
-    return message.from === state.did && record?.type === "sonnet.register.v1" && record.contest_id === CONTEST.id;
-  }) || null;
+  state.registration = ownRegistration(state.registrationMessages) || null;
   state.registrationReceipt = findReceipt(state.registrationMessages, state.registration);
   state.registrationAccepted = recordStatus(parseRecord(state.registrationReceipt?.text)) === "accepted";
   // A DID already registered in this contest keeps the role it registered
@@ -1265,7 +1309,10 @@ async function register() {
       record.x_account_url = `https://x.com/${handle}`;
     }
     if (!existing) record.request_id = requestId("register");
-    await postSigned(ROOMS.registration, record);
+    const posted = await postSigned(ROOMS.registration, record);
+    // Kept before the first read, so the wait is recoverable even if the room
+    // turns over between the write and the referee's answer.
+    saveRegistration(posted.message);
     await refreshRegistration();
     await refreshMemberRegistrations();
     renderAll();

@@ -1,0 +1,12 @@
+{
+  "name": "Sonnet Team Desk",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "postCreateCommand": "npm install --no-audit --no-fund",
+  "forwardPorts": [5191],
+  "portsAttributes": {
+    "5191": {
+      "label": "Sonnet Team Desk",
+      "onAutoForward": "openPreview"
+    }
+  }
+}

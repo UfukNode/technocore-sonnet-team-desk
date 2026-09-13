@@ -308,3 +308,114 @@ test("says why the ballot button will not sign", async ({ page }) => {
   await expect(page.locator("#voteButton")).toBeEnabled({ timeout: 20000 });
   await expect(page.locator("#voteNote")).toHaveText("");
 });
+
+test("blames the queue, not the key, while the referee is behind", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-09-11T12:10:00Z"));
+  const privateJwk = privateKeyFixture();
+  const rooms = new Map();
+  let sequence = 10;
+  let refereeBehind = true;
+
+  const addMessage = (room, from, text, signature = "A".repeat(86)) => {
+    const message = { seq: ++sequence, ts: "2026-09-11T12:10:00.000000Z", from, text, nonce: 1, sig: signature };
+    rooms.set(room, [...(rooms.get(room) || []), message]);
+    return message;
+  };
+
+  addMessage("d-sonnet-2-rules", REFEREE, JSON.stringify({
+    type: "sonnet.launch.v1", status: "open", rooms_provisioned: true,
+    configuration: { contest_id: "sonnet-2", referee: REFEREE },
+    package: { sha256: MANIFEST_SHA256 },
+  }));
+  // A flood of other people's registrations, almost none of them answered: the
+  // shape of the room while the referee is drowning.
+  for (let index = 0; index < 60; index += 1) {
+    addMessage("mb-sonnet-2-registration", TEAMMATES[index % TEAMMATES.length], JSON.stringify({ type: "sonnet.register.v1", contest_id: "sonnet-2", role: "voter", request_id: `flood-${index}` }));
+  }
+  addMessage("mb-sonnet-2-registration", REFEREE, JSON.stringify({ type: "sonnet.receipt.v1", contest_id: "sonnet-2", request_id: "flood-0", role: "voter", status: "accepted" }));
+
+  await page.route("**/api/room-owners/**", async (route) => {
+    const room = new URL(route.request().url()).pathname.split("/").at(-1);
+    await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, data: { room, owner: REFEREE } }) });
+  });
+  await page.route("**/api/rooms/**", async (route) => {
+    const request = route.request();
+    const room = new URL(request.url()).pathname.split("/").at(-1);
+    if (request.method() === "POST") {
+      const signed = request.postDataJSON();
+      const stored = addMessage(room, signed.did, signed.text, signed.sig);
+      await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, data: { room, count: 1, last_seq: stored.seq, messages: [stored] } }) });
+      return;
+    }
+    let messages = rooms.get(room) || [];
+    // Caught up: the flood is answered, so the only unanswered one left is ours.
+    if (!refereeBehind && room === "mb-sonnet-2-registration") {
+      const extra = messages.filter((message) => JSON.parse(message.text).request_id?.startsWith("flood-"))
+        .map((message) => ({ ...message, seq: ++sequence, from: REFEREE, text: JSON.stringify({ type: "sonnet.receipt.v1", contest_id: "sonnet-2", request_id: JSON.parse(message.text).request_id, role: "voter", status: "accepted" }) }));
+      messages = [...messages, ...extra];
+    }
+    await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, data: { room, generation: 0, count: messages.length, first_seq: messages[0]?.seq ?? null, last_seq: messages.at(-1)?.seq ?? 0, messages } }) });
+  });
+
+  await page.goto("/");
+  await page.locator("#keyFile").setInputFiles({ name: "private-key.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ privateKeyJwk: privateJwk })) });
+  await page.locator('[data-role="voter"]').click();
+  await page.locator("#registerButton").click();
+  await expect(page.locator("#cutoffNote")).toContainText("a long way behind", { timeout: 20000 });
+  await expect(page.locator("#cutoffNote")).not.toContainText("too new");
+
+  // Once the referee is keeping up, a wait this long does point at the key again.
+  refereeBehind = false;
+  // The wait has to actually be long for the key explanation to apply, and the
+  // clock is frozen in this test, so it is moved on deliberately.
+  await page.clock.setFixedTime(new Date("2026-09-11T12:20:00Z"));
+  await expect(page.locator("#cutoffNote")).toContainText("too new", { timeout: 30000 });
+});
+
+test("reads a key file whatever tool wrote it", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-09-11T12:10:00Z"));
+  const privateJwk = privateKeyFixture();
+  const seed = Buffer.from(privateJwk.d, "base64url");
+  const publicRaw = Buffer.from(privateJwk.x, "base64url");
+  const naclSecret = Buffer.concat([seed, publicRaw]);
+  const multibase = (prefix, body) => {
+    const bytes = Buffer.concat([Buffer.from(prefix), body]);
+    const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+    let number = BigInt(`0x${bytes.toString("hex")}`);
+    let out = "";
+    while (number > 0n) { out = alphabet[Number(number % 58n)] + out; number /= 58n; }
+    for (const byte of bytes) { if (byte === 0) out = `1${out}`; else break; }
+    return `z${out}`;
+  };
+  const publicMultibase = multibase([0xed, 0x01], publicRaw);
+  const expectedDid = `did:key:${publicMultibase}`;
+
+  // One key, written the way a spread of real tools write it.
+  const shapes = {
+    "bare jwk": privateJwk,
+    "wrapped jwk": { warning: "keep this secret", did: expectedDid, privateKeyJwk: privateJwk },
+    "jwk without kty": { d: privateJwk.d, x: privateJwk.x },
+    "w3c multibase": { id: `${expectedDid}#${publicMultibase}`, type: "Ed25519VerificationKey2020", publicKeyMultibase: publicMultibase, privateKeyMultibase: multibase([0x80, 0x26], seed) },
+    "nacl secret key array": { secretKey: [...naclSecret] },
+    "nacl secret key base64": { secretKey: naclSecret.toString("base64") },
+    "seed as hex": { seed: seed.toString("hex") },
+    "private key as base64url": { privateKey: seed.toString("base64url") },
+    "keys array": { keys: [privateJwk] },
+  };
+
+  await mockEmptyRooms(page);
+  await page.goto("/");
+  for (const [label, payload] of Object.entries(shapes)) {
+    await page.locator("#keyFile").setInputFiles({ name: `${label}.json`, mimeType: "application/json", buffer: Buffer.from(JSON.stringify(payload)) });
+    await expect(page.locator("#didFull"), label).toHaveText(expectedDid, { timeout: 10000 });
+    await page.locator("#forgetKeyButton").click();
+  }
+
+  // And the files that genuinely cannot be used say which problem it is.
+  await page.locator("#keyFile").setInputFiles({ name: "notes.json", mimeType: "application/json", buffer: Buffer.from("just some notes") });
+  await expect(page.locator("#toast")).toContainText("not JSON");
+  await page.locator("#keyFile").setInputFiles({ name: "halves.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ seed: seed.toString("hex"), publicKey: Buffer.alloc(32, 7).toString("base64url") })) });
+  await expect(page.locator("#toast")).toContainText("do not belong together");
+  await page.locator("#keyFile").setInputFiles({ name: "wrong-did.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ did: "did:key:z6MkowHQwsx9xr84WbWN3YCnKutyBnBXkT1ChKY4uEAAMzte", privateKeyJwk: privateJwk })) });
+  await expect(page.locator("#toast")).toContainText("names a different DID");
+});

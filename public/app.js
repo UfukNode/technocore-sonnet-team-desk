@@ -32,6 +32,7 @@ const i18n = {
     keySafety: "Your key stays in this browser tab", importExisting: "Import existing Technocore DID", prestartOnly: "Writers and voters need verified activity before the contest opened.",
     chooseKey: "Choose private key JSON", connectedDid: "Connected DID", contestRegistration: "Contest registration", notRegistered: "Not registered",
     noReasonGiven: "the referee gave no reason",
+    refereeBehind: "The referee is a long way behind right now: it is answering only a small share of the registrations arriving, so almost nobody is getting a quick answer. This wait does not tell you anything about your DID, and registering again would only add a second request behind the first. Leave the page open, it keeps checking by itself.",
     watchingForReceipt: "This page is watching for the answer and will fill it in by itself, usually within a few seconds. Do not reload: your private key is held in this tab only, so reloading loses it and you have to choose the file again.", silentlyIgnored: "The referee normally answers in a few seconds and it has not answered this. It does not refuse a key that has no signed record from before 11 September 12:00 UTC, it ignores it, so a registration that stays unanswered usually means the key is too new for this contest. This is a guess from the wait, not something the referee said.", cutoffExplainer: "This key has no signed record from before 11 September 12:00 UTC, so it cannot write or vote in this contest. Trying again will not change it. Use an older DID.",
     roleLocked: "This DID is already registered for this contest. One DID is one role, and its role is:",
     roleAlreadyPosted: "This DID already has a registration waiting on the referee, for the role:", roleOpen: "Pick a role, then register. It locks once the referee accepts it.",
@@ -63,7 +64,10 @@ const i18n = {
     publicEntries: "Public entries", noEntries: "No accepted entries found.", entryId: "Entry ID", castVote: "Sign public ballot", finalStage: "Final stage",
     contestResults: "Contest results", noResults: "The referee has not published results.", paymentDestination: "Payment destination from the announced method", signClaim: "Sign prize claim",
     launchNotVerified: "Launch not verified", startsIn: "Starts in", contestLive: "Contest live", contestClosed: "Contest closed", keyLoaded: "DID imported.",
-    invalidKey: "This is not a supported Technocore private key file.", keyForgotten: "Private key removed from this tab.", refreshDone: "Live rooms refreshed.",
+    keyNotJson: "This file is not JSON. Choose the .json file your signing tool wrote, not a text note or a PEM file.",
+    keyHalvesDisagree: "The private and public halves in this file do not belong together, so it cannot be used. Export the key again from the tool that made it.",
+    keyDidMismatch: "This file names a different DID than its key produces. The key in it belongs to {did}. Check you picked the right file.",
+    invalidKey: "No Ed25519 private key could be read from this file. A JWK, a multibase or nacl secret key, or a raw 32 byte seed as hex or base64 all work, under the usual field names.", keyForgotten: "Private key removed from this tab.", refreshDone: "Live rooms refreshed.",
     postedWaiting: "Signed message posted. Waiting for a referee receipt.", accepted: "Accepted", rejected: "Rejected", posted: "Posted · waiting for referee",
     registerFirst: "Connect your DID and complete accepted registration first.", roomRequested: "Room request posted. Wait for the referee setup receipt.",
     inviteCopied: "Team invite copied.", rosterPosted: "Roster consent posted. Every listed member must sign the identical roster.", memberExists: "That DID is already in the team.",
@@ -84,6 +88,7 @@ const i18n = {
     keySafety: "Anahtarın yalnızca bu tarayıcı sekmesinde kalır", importExisting: "Mevcut Technocore DID'ini içe aktar", prestartOnly: "Writer ve voter için yarışma öncesi doğrulanmış aktivite gerekir.",
     chooseKey: "Private key JSON seç", connectedDid: "Bağlı DID", contestRegistration: "Yarışma kaydı", notRegistered: "Kayıtlı değil",
     noReasonGiven: "referee sebep bildirmedi",
+    refereeBehind: "Referee şu an çok geride: gelen kayıtların yalnızca küçük bir kısmını cevaplıyor, yani neredeyse hiç kimse hızlı cevap alamıyor. Bu bekleme DIDiniz hakkında bir şey söylemiyor ve tekrar kaydolmak sadece ilkinin arkasına ikinci bir istek ekler. Sayfayı açık bırakın, kendisi kontrol etmeye devam ediyor.",
     watchingForReceipt: "Bu sayfa cevabı kendisi bekliyor ve geldiğinde kendisi yazacak, genelde birkaç saniye içinde. Sayfayı yenilemeyin: özel anahtarınız yalnızca bu sekmede tutuluyor, yenilerseniz kaybolur ve dosyayı tekrar seçmeniz gerekir.", silentlyIgnored: "Referee normalde birkaç saniyede cevap verir ve buna cevap vermedi. 11 Eylül 12:00 UTC öncesine ait imzalı kaydı olmayan bir anahtarı reddetmiyor, yok sayıyor. Yani cevapsız kalan bir kayıt genelde anahtarın bu yarışma için çok yeni olduğu anlamına gelir. Bu, bekleme süresinden çıkarılmış bir tahmin, referee'nin söylediği bir şey değil.", cutoffExplainer: "Bu anahtarın 11 Eylül 12:00 UTC öncesine ait imzalı bir kaydı yok, bu yüzden bu yarışmada ne yazabilir ne oy verebilir. Tekrar denemek sonucu değiştirmez. Daha eski bir DID kullanın.",
     roleLocked: "Bu DID bu yarışmaya zaten kayıtlı. Bir DID tek rol alır, rolü:",
     roleAlreadyPosted: "Bu DID için referee'yi bekleyen bir kayıt zaten var, rolü:", roleOpen: "Rolü seçin, sonra kaydolun. Referee kabul edince kilitlenir.",
@@ -115,7 +120,10 @@ const i18n = {
     publicEntries: "Açık katılımlar", noEntries: "Kabul edilmiş katılım bulunamadı.", entryId: "Katılım ID", castVote: "Açık oyu imzala", finalStage: "Son aşama",
     contestResults: "Yarışma sonuçları", noResults: "Referee henüz sonuç yayımlamadı.", paymentDestination: "Duyurulan yönteme uygun ödeme adresi", signClaim: "Ödül talebini imzala",
     launchNotVerified: "Başlangıç doğrulanmadı", startsIn: "Başlamasına", contestLive: "Yarışma aktif", contestClosed: "Yarışma kapandı", keyLoaded: "DID içe aktarıldı.",
-    invalidKey: "Bu dosya desteklenen bir Technocore private key dosyası değil.", keyForgotten: "Private key bu sekmeden kaldırıldı.", refreshDone: "Canlı odalar yenilendi.",
+    keyNotJson: "Bu dosya JSON değil. İmzalama aracınızın yazdığı .json dosyasını seçin, metin notu veya PEM dosyası olmaz.",
+    keyHalvesDisagree: "Bu dosyadaki özel ve açık anahtar birbirine ait değil, bu yüzden kullanılamıyor. Anahtarı üreten araçtan tekrar dışa aktarın.",
+    keyDidMismatch: "Bu dosya, içindeki anahtarın ürettiğinden farklı bir DID yazıyor. Dosyadaki anahtar {did} adresine ait. Doğru dosyayı seçtiğinizden emin olun.",
+    invalidKey: "Bu dosyadan Ed25519 özel anahtarı okunamadı. JWK, multibase veya nacl secret key, ya da 32 baytlık ham tohum (hex veya base64) hepsi çalışır, bilinen alan adları altında.", keyForgotten: "Private key bu sekmeden kaldırıldı.", refreshDone: "Canlı odalar yenilendi.",
     postedWaiting: "İmzalı mesaj gönderildi. Referee makbuzu bekleniyor.", accepted: "Kabul edildi", rejected: "Reddedildi", posted: "Gönderildi · referee bekleniyor",
     registerFirst: "Önce DID'ini bağla ve kabul edilmiş kaydını tamamla.", roomRequested: "Oda isteği gönderildi. Referee kurulum makbuzunu bekle.",
     inviteCopied: "Takım daveti kopyalandı.", rosterPosted: "Kadro onayı gönderildi. Listedeki herkes aynı kadroyu imzalamalı.", memberExists: "Bu DID zaten takımda.",
@@ -157,6 +165,7 @@ const state = {
   team: loadTeam(),
   poem: { canonical: "", hash: "", valid: false, xText: "" },
   registrationRefreshPending: false,
+  refereeRate: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -233,9 +242,100 @@ async function sha256Text(text) {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+function base58Decode(value) {
+  const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  let number = 0n;
+  for (const character of value) {
+    const index = alphabet.indexOf(character);
+    if (index < 0) return null;
+    number = number * 58n + BigInt(index);
+  }
+  let hex = number.toString(16);
+  if (hex.length % 2) hex = `0${hex}`;
+  const digits = hex === "0" ? [] : hex.match(/../g).map((pair) => Number.parseInt(pair, 16));
+  const leading = [];
+  for (const character of value) { if (character === "1") leading.push(0); else break; }
+  return new Uint8Array([...leading, ...digits]);
+}
+
+/** Bytes out of whatever a tool wrote them as: an array, hex, base64, base64url or multibase. */
+function keyBytes(value) {
+  if (Array.isArray(value) && value.every((item) => Number.isInteger(item) && item >= 0 && item <= 255)) return new Uint8Array(value);
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  if (!text) return null;
+  if (/^z[1-9A-HJ-NP-Za-km-z]+$/.test(text)) return base58Decode(text.slice(1));
+  if (/^(0x)?[0-9a-f]+$/i.test(text) && text.replace(/^0x/, "").length % 2 === 0) {
+    return new Uint8Array(text.replace(/^0x/, "").match(/../g).map((pair) => Number.parseInt(pair, 16)));
+  }
+  if (/^[A-Za-z0-9_+/=-]+$/.test(text)) { try { return base64urlToBytes(text); } catch { return null; } }
+  return null;
+}
+
+/**
+ * Turns a key file into the JWK this page signs with, whatever shape it arrived in.
+ *
+ * The contest defines no key file format. The rules say participants bring their own
+ * signing tool, so the files people actually have were written by a dozen different
+ * ones: a bare JWK, a JWK under some wrapper, a multibase pair from the W3C
+ * libraries, a sixty-four byte secret key from the nacl family, a raw seed as hex or
+ * base64. This page used to accept two of those and answer every other file with one
+ * sentence saying it was not supported, which is true and useless: the key in the
+ * file was almost always fine.
+ *
+ * Only the private seed is actually needed. Where the public half is missing it is
+ * derived, by wrapping the seed as PKCS8 and letting WebCrypto hand back the pair,
+ * so a file holding nothing but a seed still works. Where the file carries a public
+ * key or a DID of its own, that is checked against what the seed produces rather
+ * than trusted, because a mismatch means the file is not what its owner thinks.
+ */
+async function normalizeKeyJwk(payload) {
+  const wrapped = payload?.privateKeyJwk || payload?.privateKeyJWK || payload?.jwk
+    || (Array.isArray(payload?.keys) ? payload.keys[0] : null) || payload;
+  const candidate = wrapped && typeof wrapped === "object" && !Array.isArray(wrapped) ? wrapped : {};
+
+  // A JWK, however completely it was written out.
+  if (candidate.d && candidate.x && (candidate.crv || "Ed25519") === "Ed25519") {
+    return { kty: "OKP", crv: "Ed25519", d: candidate.d, x: candidate.x };
+  }
+
+  const seedSource = candidate.d ?? candidate.privateKeyMultibase ?? candidate.secretKey ?? candidate.privateKey
+    ?? candidate.seed ?? candidate.key ?? (typeof payload === "string" ? payload : null)
+    ?? (Array.isArray(payload) ? payload : null);
+  let seed = keyBytes(seedSource);
+  // Multibase private keys carry the 0x8026 multicodec; nacl secret keys are the
+  // seed with the public key already appended.
+  if (seed && seed.length === 34 && seed[0] === 0x80 && seed[1] === 0x26) seed = seed.slice(2);
+  if (seed && seed.length === 64) seed = seed.slice(0, 32);
+  if (!seed || seed.length !== 32) throw new Error(t("invalidKey"));
+
+  const pkcs8 = new Uint8Array(48);
+  pkcs8.set([0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20]);
+  pkcs8.set(seed, 16);
+  let derived;
+  try {
+    derived = await crypto.subtle.exportKey("jwk", await crypto.subtle.importKey("pkcs8", pkcs8, { name: "Ed25519" }, true, ["sign"]));
+  } catch {
+    throw new Error(t("invalidKey"));
+  }
+  const stated = candidate.publicKeyMultibase ?? candidate.publicKey ?? candidate.x;
+  const statedBytes = stated ? keyBytes(stated) : null;
+  if (statedBytes) {
+    const publicKey = statedBytes.length === 34 && statedBytes[0] === 0xed && statedBytes[1] === 0x01 ? statedBytes.slice(2) : statedBytes;
+    const matches = publicKey.length === 32 && bytesToBase64url(publicKey) === derived.x;
+    if (!matches) throw new Error(t("keyHalvesDisagree"));
+  }
+  return { kty: "OKP", crv: "Ed25519", d: derived.d, x: derived.x };
+}
+
 async function importKeyFile(file) {
-  const payload = JSON.parse(await file.text());
-  const jwk = payload.privateKeyJwk || payload;
+  let payload;
+  try {
+    payload = JSON.parse(await file.text());
+  } catch {
+    throw new Error(t("keyNotJson"));
+  }
+  const jwk = await normalizeKeyJwk(payload);
   if (jwk?.kty !== "OKP" || jwk?.crv !== "Ed25519" || !jwk.d || !jwk.x) throw new Error(t("invalidKey"));
   const rawPublic = base64urlToBytes(jwk.x);
   if (rawPublic.length !== 32) throw new Error(t("invalidKey"));
@@ -243,7 +343,12 @@ async function importKeyFile(file) {
   prefixed.set([0xed, 0x01]);
   prefixed.set(rawPublic, 2);
   const did = `did:key:z${base58Encode(prefixed)}`;
-  if (!DID_RE.test(did) || (payload.did && payload.did !== did)) throw new Error(t("invalidKey"));
+  if (!DID_RE.test(did)) throw new Error(t("invalidKey"));
+  // A file that names its own DID is checked against the one the key produces. The
+  // W3C libraries write it as `id`, sometimes with a `#fragment` for the key inside
+  // the document, so only the DID part is compared.
+  const claimed = String(payload.did || payload.id || "").split("#")[0];
+  if (claimed && claimed !== did) throw new Error(t("keyDidMismatch").replace("{did}", did));
   const cryptoKey = await crypto.subtle.importKey("jwk", jwk, { name: "Ed25519" }, false, ["sign"]);
   state.keyJwk = jwk;
   state.cryptoKey = cryptoKey;
@@ -306,6 +411,27 @@ async function readRoom(room, search = "") {
   searches.forEach((value) => query.append("search", value));
   return api(`/api/rooms/${encodeURIComponent(room)}?${query}`);
 }
+
+/**
+ * How much of the registration room's recent traffic the referee has answered.
+ *
+ * Needed to tell two very different waits apart. If the referee is answering the
+ * people around you and not you, your key is the likely difference. If it is
+ * answering almost nobody, the wait says nothing about your key and telling you
+ * otherwise sends you off to find a second DID you did not need.
+ */
+async function readRefereeRate() {
+  const room = await readRoom(ROOMS.registration);
+  const messages = room.messages || [];
+  const requests = messages.filter((message) => parseRecord(message.text)?.type === "sonnet.register.v1").length;
+  const answers = messages.filter((message) => message.from === state.refereeDid).length;
+  return { requests, answers };
+}
+
+const refereeIsBehind = () => {
+  const rate = state.refereeRate;
+  return Boolean(rate && rate.requests >= 20 && rate.answers * 4 < rate.requests);
+};
 
 async function readPoemWords(room) {
   const query = new URLSearchParams({ referee: state.refereeDid || "" });
@@ -579,6 +705,7 @@ async function refreshPendingRegistration() {
   state.registrationRefreshPending = true;
   try {
     await refreshRegistration();
+    state.refereeRate = await readRefereeRate().catch(() => state.refereeRate);
     // Acceptance is what unlocks the ballot button, and that button is drawn by
     // renderEntries on another screen. Redrawing only the registration panel left
     // a registered voter looking at a dead button on the vote screen until they
@@ -726,7 +853,12 @@ function renderRegistration() {
   $("#cutoffNote").textContent = /pre-start|evidence|cutoff/i.test(reason)
     ? t("cutoffExplainer")
     : status !== "pending" ? ""
-      : waited > 120 ? t("silentlyIgnored") : t("watchingForReceipt");
+      // A long wait only points at your key while the referee is keeping up with
+      // everyone else. When it is answering a fraction of what arrives, the wait is
+      // the queue, and blaming the key would send people hunting for another DID.
+      : refereeIsBehind() ? t("refereeBehind")
+        : waited > 120 ? t("silentlyIgnored") : t("watchingForReceipt");
+  $("#cutoffNote").classList.toggle("eligibility-note", !refereeIsBehind());
   $("#eligibilityValue").textContent = status === "accepted" ? t("accepted") : status === "rejected" ? t("rejected") : t("checkedByReferee");
 }
 

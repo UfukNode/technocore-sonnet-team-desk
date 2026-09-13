@@ -239,3 +239,72 @@ test("keeps waiting for the referee after the registration room forgets the requ
   addMessage("mb-sonnet-2-registration", REFEREE, JSON.stringify({ type: "sonnet.receipt.v1", contest_id: "sonnet-2", request_id: registration.request_id, role: "voter", status: "accepted" }));
   await expect(page.locator("#registrationState")).toHaveText("Accepted", { timeout: 20000 });
 });
+
+test("says why the ballot button will not sign", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-09-11T12:10:00Z"));
+  const privateJwk = privateKeyFixture();
+  const rooms = new Map();
+  let sequence = 10;
+  let acceptRegistration = false;
+
+  const addMessage = (room, from, text, signature = "A".repeat(86)) => {
+    const message = { seq: ++sequence, ts: "2026-09-11T12:10:00.000000Z", from, text, nonce: 1, sig: signature };
+    rooms.set(room, [...(rooms.get(room) || []), message]);
+    return message;
+  };
+
+  addMessage("d-sonnet-2-rules", REFEREE, JSON.stringify({
+    type: "sonnet.launch.v1", status: "open", rooms_provisioned: true,
+    configuration: { contest_id: "sonnet-2", referee: REFEREE },
+    package: { sha256: MANIFEST_SHA256 },
+  }));
+  // One accepted entry to choose, so the note is never just about an empty field.
+  addMessage("mb-sonnet-2-submissions", REFEREE, JSON.stringify({ type: "sonnet.receipt.v1", contest_id: "sonnet-2", request_id: "s1", entry_id: "wordcore", game_id: "wordcore", status: "accepted" }));
+
+  await page.route("**/api/room-owners/**", async (route) => {
+    const room = new URL(route.request().url()).pathname.split("/").at(-1);
+    await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, data: { room, owner: REFEREE } }) });
+  });
+  await page.route("**/api/poem-words/**", async (route) => {
+    await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, data: { room: "d-sonnet-2-team-wordcore", generation: 1, accepted: 0, words: [] } }) });
+  });
+  await page.route("**/api/rooms/**", async (route) => {
+    const request = route.request();
+    const room = new URL(request.url()).pathname.split("/").at(-1);
+    if (request.method() === "POST") {
+      const signed = request.postDataJSON();
+      const stored = addMessage(room, signed.did, signed.text, signed.sig);
+      const record = JSON.parse(signed.text);
+      if (record.type === "sonnet.register.v1" && acceptRegistration) {
+        addMessage(room, REFEREE, JSON.stringify({ type: "sonnet.receipt.v1", contest_id: "sonnet-2", request_id: record.request_id, role: record.role, status: "accepted" }));
+      }
+      await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, data: { room, count: 1, last_seq: stored.seq, messages: [stored] } }) });
+      return;
+    }
+    const messages = rooms.get(room) || [];
+    await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, data: { room, generation: 0, count: messages.length, first_seq: messages[0]?.seq ?? null, last_seq: messages.at(-1)?.seq ?? 0, messages } }) });
+  });
+
+  await page.goto("/");
+  await page.locator('[data-view-target="submit"]').click();
+  // Before a key is chosen at all.
+  await expect(page.locator("#voteNote")).toContainText("private key");
+
+  await page.locator("#keyFile").setInputFiles({ name: "private-key.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ privateKeyJwk: privateJwk })) });
+  await page.locator('[data-view-target="agent"]').click();
+  await page.locator('[data-role="voter"]').click();
+  await page.locator("#registerButton").click();
+  await page.locator('[data-view-target="submit"]').click();
+  await page.locator("#voteEntryId").fill("wordcore");
+  // The entry is chosen and the role is right, so the only thing left is the wait,
+  // and that is what the note has to name.
+  await expect(page.locator("#voteNote")).toContainText("has not accepted your voter registration yet");
+  await expect(page.locator("#voteButton")).toBeDisabled();
+
+  // Once the referee answers, the note clears and the button signs.
+  acceptRegistration = true;
+  const registration = (rooms.get("mb-sonnet-2-registration") || []).map((message) => JSON.parse(message.text)).find((record) => record.type === "sonnet.register.v1");
+  addMessage("mb-sonnet-2-registration", REFEREE, JSON.stringify({ type: "sonnet.receipt.v1", contest_id: "sonnet-2", request_id: registration.request_id, role: "voter", status: "accepted" }));
+  await expect(page.locator("#voteButton")).toBeEnabled({ timeout: 20000 });
+  await expect(page.locator("#voteNote")).toHaveText("");
+});

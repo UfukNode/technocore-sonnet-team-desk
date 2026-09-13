@@ -59,6 +59,7 @@ const i18n = {
     submitNote: "Only the writer of the last word publishes and submits. Every link must be on that one account: a teammate posting from their own account does not count. Their X account is fixed at registration and cannot be changed later.",
     onePost: "One post, it fits", postsInOrder: "posts, in this order", copy: "Copy", copied: "Post copied.",
     poemAutoFilled: "The accepted poem was filled in for you. Check it, publish it, then paste the post IDs.",
+    voteNeedsKey: "Choose your private key JSON first, on the Connect screen.", voteNotOpen: "Voting is not open yet.", voteClosed: "Voting has closed.", voteWrongRole: "This DID is registered for the role {role}, and only a voter can sign a ballot. One DID holds one role and a writer cannot also vote, so voting needs a different DID, registered as a voter.", voteRejected: "The referee refused this registration, so no ballot from this DID will count. See the reason on the Connect screen.", voteWaiting: "The referee has not accepted your voter registration yet, and a ballot only counts once it has. The referee is running behind: registrations are being answered about half an hour after they arrive. This page keeps checking by itself, leave it open.", voteNeedsEntry: "Pick an entry from the list, or type its ID above.",
     publicEntries: "Public entries", noEntries: "No accepted entries found.", entryId: "Entry ID", castVote: "Sign public ballot", finalStage: "Final stage",
     contestResults: "Contest results", noResults: "The referee has not published results.", paymentDestination: "Payment destination from the announced method", signClaim: "Sign prize claim",
     launchNotVerified: "Launch not verified", startsIn: "Starts in", contestLive: "Contest live", contestClosed: "Contest closed", keyLoaded: "DID imported.",
@@ -110,6 +111,7 @@ const i18n = {
     submitNote: "Şiiri sadece son kelimeyi yazan paylaşır ve sadece o gönderim yapabilir. Bütün linkler o tek hesaptan olmalı: takım arkadaşının kendi hesabından paylaşması saymaz. O kişinin X hesabı kayıtta sabitlenir, sonradan değiştirilemez.",
     onePost: "Tek gönderi, sığıyor", postsInOrder: "gönderi, bu sırayla", copy: "Kopyala", copied: "Gönderi kopyalandı.",
     poemAutoFilled: "Kabul edilen şiir sizin için dolduruldu. Kontrol edin, paylaşın, sonra post ID'lerini yapıştırın.",
+    voteNeedsKey: "Önce Connect ekranından özel anahtar JSON dosyanızı seçin.", voteNotOpen: "Oylama henüz açılmadı.", voteClosed: "Oylama kapandı.", voteWrongRole: "Bu DID {role} rolüyle kayıtlı, oy pusulasını ise yalnızca voter imzalayabilir. Bir DID tek bir rol taşır ve writer olan biri oy veremez, yani oy vermek için voter olarak kayıtlı başka bir DID gerekiyor.", voteRejected: "Referee bu kaydı reddetti, bu DIDden gelen oy sayılmaz. Sebebi Connect ekranında yazıyor.", voteWaiting: "Referee voter kaydınızı henüz kabul etmedi, oy ise ancak kabul edildikten sonra sayılıyor. Referee şu an geride: kayıtlar geldikten yaklaşık yarım saat sonra cevaplanıyor. Bu sayfa kendisi kontrol etmeye devam ediyor, açık bırakın.", voteNeedsEntry: "Listeden bir katılım seçin veya ID sini yukarıya yazın.",
     publicEntries: "Açık katılımlar", noEntries: "Kabul edilmiş katılım bulunamadı.", entryId: "Katılım ID", castVote: "Açık oyu imzala", finalStage: "Son aşama",
     contestResults: "Yarışma sonuçları", noResults: "Referee henüz sonuç yayımlamadı.", paymentDestination: "Duyurulan yönteme uygun ödeme adresi", signClaim: "Ödül talebini imzala",
     launchNotVerified: "Başlangıç doğrulanmadı", startsIn: "Başlamasına", contestLive: "Yarışma aktif", contestClosed: "Yarışma kapandı", keyLoaded: "DID içe aktarıldı.",
@@ -577,7 +579,11 @@ async function refreshPendingRegistration() {
   state.registrationRefreshPending = true;
   try {
     await refreshRegistration();
-    renderRegistration();
+    // Acceptance is what unlocks the ballot button, and that button is drawn by
+    // renderEntries on another screen. Redrawing only the registration panel left
+    // a registered voter looking at a dead button on the vote screen until they
+    // happened to type in the entry field, which is a strange thing to discover.
+    renderAll();
   } catch {
     // A temporary read failure should not interrupt the participant's workflow.
   } finally {
@@ -923,6 +929,26 @@ function entryPoemMarkup(entry) {
   return `<p class="entry-poem quiet">${escapeHtml(loaded.status === "empty" ? t("poemUnavailable") : loaded.error || t("poemUnavailable"))}</p>`;
 }
 
+/**
+ * Says why the ballot button will not sign, when it will not.
+ *
+ * It was only ever disabled, with nothing beside it, and the reason is never the
+ * button: it is a role, a wait, or an entry not yet chosen, all of them settled on
+ * another screen. A voter who has done everything they were told to do arrives
+ * here, finds a grey button, and has no way to learn which of those it is.
+ */
+function voteBlocker() {
+  if (!state.did) return t("voteNeedsKey");
+  if (phase() === "waiting") return t("voteNotOpen");
+  if (phase() === "closed") return t("voteClosed");
+  const status = recordStatus(parseRecord(state.registrationReceipt?.text));
+  if (state.role !== "voter") return t("voteWrongRole").replace("{role}", state.role || "?");
+  if (status === "rejected") return t("voteRejected");
+  if (!state.registrationAccepted) return t("voteWaiting");
+  if (!$("#voteEntryId").value.trim()) return t("voteNeedsEntry");
+  return "";
+}
+
 function renderEntries() {
   const entries = acceptedEntries();
   const list = $("#entryList");
@@ -933,6 +959,7 @@ function renderEntries() {
     .forEach((entry) => loadEntryPoem(entry).then(() => renderEntries()));
   $("#entryCount").textContent = String(entries.length);
   $("#voteButton").disabled = !(state.registrationAccepted && state.role === "voter" && $("#voteEntryId").value.trim() && phase() === "live");
+  $("#voteNote").textContent = voteBlocker();
 }
 
 function renderResults() {

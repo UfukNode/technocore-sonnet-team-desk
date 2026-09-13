@@ -567,3 +567,21 @@ button:disabled, .disabled { opacity: .42; pointer-events: none; }
 .suggestion:hover { border-color: var(--cyan); color: var(--cyan); }
 .suggestion b { color: var(--muted); font-size: 9px; font-weight: 600; }
 .suggest-empty { font-size: 10px; color: var(--muted); line-height: 1.5; }
+
+/* Finish and submit: its own block under the room, hidden until line 14 lands.
+   A submit panel beside word 12 of 130 is noise, and the fields it wants are
+   not knowable yet anyway. */
+.submit-panel { margin-top: 16px; }
+
+/* What to post, in order, with the character count X will actually apply.
+   Handing someone 720 characters and an "Open X" button is what leaves them
+   splitting a sonnet by hand, and a split in the wrong place is refused. */
+.publish-plan { display: grid; gap: 8px; margin: 10px 0; }
+.plan-head { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.plan-post { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #0c1114; }
+.plan-post header { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--line); font-size: 10px; color: var(--muted); }
+.plan-post header span { font-weight: 700; color: var(--text); }
+.plan-post header b { color: var(--yellow); font-weight: 600; }
+.copy-post { margin-left: auto; padding: 3px 9px; border-radius: 5px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font-size: 10px; cursor: pointer; }
+.copy-post:hover { border-color: var(--cyan); color: var(--cyan); }
+.plan-post pre { margin: 0; padding: 9px 11px; font-family: inherit; font-size: 11px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; color: var(--text); }

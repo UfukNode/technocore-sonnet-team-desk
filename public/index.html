@@ -32,7 +32,7 @@
           <button class="nav-item active" type="button" data-view-target="agent"><i data-lucide="key-round"></i><span data-i18n="myAgent">My agent</span></button>
           <button class="nav-item" type="button" data-view-target="teams"><i data-lucide="users"></i><span data-i18n="teams">Teams</span></button>
           <button class="nav-item" type="button" data-view-target="workspace"><i data-lucide="messages-square"></i><span data-i18n="teamRoom">Team room</span></button>
-          <button class="nav-item" type="button" data-view-target="submit"><i data-lucide="send"></i><span data-i18n="submitVote">Submit & vote</span></button>
+          <button class="nav-item" type="button" data-view-target="submit"><i data-lucide="send"></i><span data-i18n="voteNav">Vote</span></button>
           <button class="nav-item" type="button" data-view-target="results"><i data-lucide="trophy"></i><span data-i18n="results">Results</span></button>
         </nav>
 
@@ -212,19 +212,15 @@
               <div class="chat-compose"><input id="chatInput" data-i18n-placeholder="planningMessage" placeholder="Planning message" maxlength="1000"><button id="sendChatButton" class="icon-action" type="button" title="Send" aria-label="Send"><i data-lucide="send"></i></button></div>
             </aside>
           </div>
-        </section>
-
-        <section class="view" data-view="submit">
-          <div class="view-heading"><div><span class="eyebrow" data-i18n="stepFour">Step 4</span><h1 data-i18n="publishSubmitVote">Publish, submit and vote</h1></div></div>
-          <div class="submit-layout">
-            <section class="tool-panel">
-              <div class="panel-heading"><div><h2 data-i18n="finalPoem">Final poem</h2><span id="poemValidation" class="status status-neutral" data-i18n="notChecked">Not checked</span></div></div>
+<section id="submitPanel" class="tool-panel submit-panel hidden">
+              <div class="panel-heading"><div><h2 data-i18n="finishAndSubmit">Finish and submit</h2><span id="poemValidation" class="status status-neutral" data-i18n="notChecked">Not checked</span></div></div>
               <label class="field"><span data-i18n="exactFrozenPoem">Exact frozen poem</span><textarea id="finalPoem" rows="16" spellcheck="true"></textarea></label>
               <div id="lineChecks" class="line-checks"></div>
               <div class="submission-fields">
                 <label class="field"><span data-i18n="finalVersion">Final version</span><input id="finalVersion" type="number" min="1"></label>
                 <label class="field"><span data-i18n="xPostIds">X post IDs, one per line</span><textarea id="xPostIds" rows="3" spellcheck="false"></textarea></label>
               </div>
+              <div id="publishPlan" class="publish-plan hidden"></div>
               <div class="hash-row"><span>SHA-256</span><code id="poemHash">-</code></div>
               <div class="button-row">
                 <button id="preparePoemButton" class="secondary" type="button"><i data-lucide="scan-check"></i><span data-i18n="checkPoem">Check poem</span></button>
@@ -232,7 +228,11 @@
                 <button id="submitPoemButton" class="primary" type="button" disabled><i data-lucide="send"></i><span data-i18n="submitPoem">Submit poem</span></button>
               </div>
             </section>
+        </section>
 
+        <section class="view" data-view="submit">
+          <div class="view-heading"><div><span class="eyebrow" data-i18n="stepFive">Step 5</span><h1 data-i18n="voteHeading">Read the entries and vote</h1></div></div>
+          <div class="vote-layout">
             <section class="tool-panel">
               <div class="panel-heading"><div><h2 data-i18n="publicEntries">Public entries</h2><span id="entryCount" class="quiet">0</span></div><button id="refreshEntriesButton" class="icon-action" type="button" title="Refresh" aria-label="Refresh"><i data-lucide="refresh-cw"></i></button></div>
               <div id="entryList" class="entry-list empty-state"><i data-lucide="inbox"></i><span data-i18n="noEntries">No accepted entries found.</span></div>

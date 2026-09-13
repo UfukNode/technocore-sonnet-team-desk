@@ -46,6 +46,9 @@ const i18n = {
     refereeState: "Referee state", stateHash: "Previous state hash", proposeWord: "Propose word", roomActivity: "Room activity", planningMessage: "Planning message",
     stepFour: "Step 4", publishSubmitVote: "Publish, submit and vote", finalPoem: "Final poem", notChecked: "Not checked", exactFrozenPoem: "Exact frozen poem",
     finalVersion: "Final version", xPostIds: "X post IDs, one per line", checkPoem: "Check poem", openX: "Open X", submitPoem: "Submit poem",
+    finishAndSubmit: "Finish and submit", voteHeading: "Read the entries and vote", voteNav: "Vote", stepFive: "Step 5",
+    onePost: "One post, it fits", postsInOrder: "posts, in this order", copy: "Copy", copied: "Post copied.",
+    poemAutoFilled: "The accepted poem was filled in for you. Check it, publish it, then paste the post IDs.",
     publicEntries: "Public entries", noEntries: "No accepted entries found.", entryId: "Entry ID", castVote: "Sign public ballot", finalStage: "Final stage",
     contestResults: "Contest results", noResults: "The referee has not published results.", paymentDestination: "Payment destination from the announced method", signClaim: "Sign prize claim",
     launchNotVerified: "Launch not verified", startsIn: "Starts in", contestLive: "Contest live", contestClosed: "Contest closed", keyLoaded: "DID imported.",
@@ -84,6 +87,9 @@ const i18n = {
     refereeState: "Referee durumu", stateHash: "Önceki state hash", proposeWord: "Kelime öner", roomActivity: "Oda hareketleri", planningMessage: "Planlama mesajı",
     stepFour: "Adım 4", publishSubmitVote: "Yayımla, gönder ve oy ver", finalPoem: "Son şiir", notChecked: "Kontrol edilmedi", exactFrozenPoem: "Kilitlemiş şiirin tam metni",
     finalVersion: "Son sürüm", xPostIds: "X post ID'leri, her satıra bir tane", checkPoem: "Şiiri kontrol et", openX: "X'i aç", submitPoem: "Şiiri gönder",
+    finishAndSubmit: "Bitir ve gönder", voteHeading: "Katılımları oku ve oy ver", voteNav: "Oy ver", stepFive: "Adım 5",
+    onePost: "Tek gönderi, sığıyor", postsInOrder: "gönderi, bu sırayla", copy: "Kopyala", copied: "Gönderi kopyalandı.",
+    poemAutoFilled: "Kabul edilen şiir sizin için dolduruldu. Kontrol edin, paylaşın, sonra post ID'lerini yapıştırın.",
     publicEntries: "Açık katılımlar", noEntries: "Kabul edilmiş katılım bulunamadı.", entryId: "Katılım ID", castVote: "Açık oyu imzala", finalStage: "Son aşama",
     contestResults: "Yarışma sonuçları", noResults: "Referee henüz sonuç yayımlamadı.", paymentDestination: "Duyurulan yönteme uygun ödeme adresi", signClaim: "Ödül talebini imzala",
     launchNotVerified: "Başlangıç doğrulanmadı", startsIn: "Başlamasına", contestLive: "Yarışma aktif", contestClosed: "Yarışma kapandı", keyLoaded: "DID içe aktarıldı.",
@@ -722,6 +728,7 @@ function renderWorkspace() {
     return `<article class="message ${cls}"><div class="message-meta"><span>${escapeHtml(message.from === state.refereeDid ? "referee" : shortDid(message.from))}</span><time>${escapeHtml(new Date(message.ts).toLocaleTimeString(state.lang === "tr" ? "tr-TR" : "en-US", { hour: "2-digit", minute: "2-digit" }))}</time></div><p>${escapeHtml(display)}</p></article>`;
   }).join("") : `<div class="empty-state"><span>${escapeHtml(t("poemWaiting"))}</span></div>`;
   validateWordInput();
+  syncSubmissionFromRoom();
 }
 
 function acceptedEntries() {
@@ -925,6 +932,63 @@ function canonicalPoem(raw) {
   return { lines, text: [lines.slice(0, 4).join("\n"), lines.slice(4, 8).join("\n"), lines.slice(8, 12).join("\n"), lines.slice(12).join("\n")].join("\n\n") };
 }
 
+// X counts an ordinary post at 280. A sonnet plus its attribution is around 720,
+// so the single-post path only exists for accounts that can post long.
+const X_LIMIT = 280;
+
+/**
+ * Splits a finished poem into posts that X will accept.
+ *
+ * The rules allow a thread but only permit splitting "between whole lines", so
+ * stanzas are the natural seam and the split never lands mid-line. The
+ * attribution rides on the last post, outside the poem, where the rules want it.
+ *
+ * Returns one post when the whole thing already fits, so an account that can
+ * post long is not pushed into a thread it does not need.
+ */
+function splitForX(poem, attribution) {
+  const whole = `${poem}\n\n${attribution}`;
+  if (whole.length <= X_LIMIT) return [whole];
+  const posts = poem.split("\n\n");
+  posts[posts.length - 1] += `\n\n${attribution}`;
+  // A stanza that still will not fit is split line by line rather than silently
+  // shipped over the limit.
+  const out = [];
+  for (const post of posts) {
+    if (post.length <= X_LIMIT) { out.push(post); continue; }
+    let current = "";
+    for (const line of post.split("\n")) {
+      const candidate = current ? `${current}\n${line}` : line;
+      if (candidate.length > X_LIMIT && current) { out.push(current); current = line; }
+      else current = candidate;
+    }
+    if (current) out.push(current);
+  }
+  return out;
+}
+
+/**
+ * Shows exactly what to post, in order, with a copy button per post.
+ *
+ * Handing someone 720 characters and an "Open X" button is what leaves them
+ * splitting a sonnet by hand at 2am, and a split in the wrong place is refused
+ * by the referee as an unverified publication.
+ */
+function renderPublishPlan() {
+  const box = $("#publishPlan");
+  if (!box) return;
+  const posts = state.poem.posts || [];
+  if (!posts.length) { box.innerHTML = ""; box.classList.add("hidden"); return; }
+  box.classList.remove("hidden");
+  const heading = posts.length === 1 ? t("onePost") : `${posts.length} ${t("postsInOrder")}`;
+  box.innerHTML = `<div class="plan-head">${escapeHtml(heading)}</div>` + posts.map((text, index) => `
+    <article class="plan-post">
+      <header><span>${index + 1}/${posts.length}</span><b>${text.length}</b>
+        <button type="button" class="copy-post" data-post="${index}">${escapeHtml(t("copy"))}</button></header>
+      <pre>${escapeHtml(text)}</pre>
+    </article>`).join("");
+}
+
 async function checkPoem() {
   try {
     const dictionary = await loadDictionary();
@@ -944,13 +1008,44 @@ async function checkPoem() {
     badge.textContent = state.poem.valid ? t("poemValid") : t("poemInvalid");
     $("#poemHash").textContent = state.poem.hash || "–";
     if (canonical.text) $("#finalPoem").value = canonical.text;
-    const attribution = `${canonical.text}\n\n${CONTEST.id} · ${state.team.gameId || "game_id"} · ${state.did || "did:key"}`;
-    state.poem.xText = attribution;
-    $("#openXButton").href = attribution.length <= 280 ? `https://x.com/intent/post?text=${encodeURIComponent(attribution)}` : "https://x.com/compose/post";
+    // Labelled, because the rules ask the attribution to state contest_id,
+    // game_id and the DID, not merely to contain the three values.
+    const attribution = `contest_id: ${CONTEST.id}\ngame_id: ${state.team.gameId || "game_id"}\nFinal contributor: ${state.did || "did:key"}`;
+    const full = `${canonical.text}\n\n${attribution}`;
+    state.poem.xText = full;
+    state.poem.posts = canonical.text ? splitForX(canonical.text, attribution) : [];
+    renderPublishPlan();
+    $("#openXButton").href = full.length <= X_LIMIT ? `https://x.com/intent/post?text=${encodeURIComponent(full)}` : "https://x.com/compose/post";
     $("#openXButton").classList.toggle("disabled", !canonical.text);
     renderSubmissionButton();
     showToast(t("poemPrepared"));
   } catch (error) { showToast(error.message); }
+}
+
+/**
+ * Fills the submission in from the room and shows it once the poem is finished.
+ *
+ * Everything here is already known: the accepted text, its version, and who
+ * wrote last. Asking the final contributor to retype a 130-word poem into a
+ * textarea is how a stray space ends up in the frozen text and the hash stops
+ * matching.
+ */
+function syncSubmissionFromRoom() {
+  const panel = $("#submitPanel");
+  if (!panel) return;
+  const poem = String(state.currentState.poem || "");
+  const finished = poem.split("\n").filter(Boolean).length === 14;
+  panel.classList.toggle("hidden", !finished);
+  if (!finished) return;
+  const field = $("#finalPoem");
+  if (field.value.trim() !== poem.trim()) {
+    field.value = poem;
+    $("#finalVersion").value = state.currentState.version || "";
+    if (!state.poem.autoFilled) { state.poem.autoFilled = true; showToast(t("poemAutoFilled")); }
+    checkPoem();
+  } else if (!$("#finalVersion").value) {
+    $("#finalVersion").value = state.currentState.version || "";
+  }
 }
 
 function renderSubmissionButton() {
@@ -1172,6 +1267,12 @@ function bindEvents() {
   $("#copyInviteButton").addEventListener("click", copyInvite);
   $("#publishRecruitmentButton").addEventListener("click", publishRecruitment);
   $("#requestJoinButton").addEventListener("click", () => requestJoin());
+  $("#publishPlan").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-post]");
+    if (!button) return;
+    const text = (state.poem.posts || [])[Number(button.dataset.post)];
+    if (text) navigator.clipboard.writeText(text).then(() => showToast(t("copied"))).catch((error) => showToast(error.message));
+  });
   $("#suggestFilter").addEventListener("input", renderLetterHelper);
   // A suggestion is only a shortcut into the same input, so it still goes
   // through every check before the button enables.

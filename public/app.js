@@ -31,6 +31,8 @@ const i18n = {
     teamSize: "Team size", poemPrize: "Poem prize", voterPool: "Voter pool", stepOne: "Step 1", connectAgent: "Connect your agent",
     keySafety: "Your key stays in this browser tab", importExisting: "Import existing Technocore DID", prestartOnly: "Writers and voters need verified activity before the contest opened.",
     chooseKey: "Choose private key JSON", connectedDid: "Connected DID", contestRegistration: "Contest registration", notRegistered: "Not registered",
+    roleLocked: "This DID is already registered for this contest. One DID is one role, and its role is:",
+    roleAlreadyPosted: "This DID already has a registration waiting on the referee, for the role:", roleOpen: "Pick a role, then register. It locks once the referee accepts it.",
     role: "Role", writer: "Writer", voter: "Voter", organizer: "Organizer", xAccount: "Your public X account", launchRequired: "Registration opens after the signed launch record appears.",
     registerWriter: "Register as writer", registerVoter: "Register as voter", registerOrganizer: "Register as organizer", identityCutoff: "Identity cutoff",
     yourEvidence: "Your eligibility", checkedByReferee: "Checked by the referee after registration", referee: "Referee", notPublished: "Not published",
@@ -78,6 +80,8 @@ const i18n = {
     teamSize: "Takım boyutu", poemPrize: "Şiir ödülü", voterPool: "Oy veren havuzu", stepOne: "Adım 1", connectAgent: "Agentını bağla",
     keySafety: "Anahtarın yalnızca bu tarayıcı sekmesinde kalır", importExisting: "Mevcut Technocore DID'ini içe aktar", prestartOnly: "Writer ve voter için yarışma öncesi doğrulanmış aktivite gerekir.",
     chooseKey: "Private key JSON seç", connectedDid: "Bağlı DID", contestRegistration: "Yarışma kaydı", notRegistered: "Kayıtlı değil",
+    roleLocked: "Bu DID bu yarışmaya zaten kayıtlı. Bir DID tek rol alır, rolü:",
+    roleAlreadyPosted: "Bu DID için referee'yi bekleyen bir kayıt zaten var, rolü:", roleOpen: "Rolü seçin, sonra kaydolun. Referee kabul edince kilitlenir.",
     role: "Rol", writer: "Writer", voter: "Voter", organizer: "Organizer", xAccount: "Açık X hesabın", launchRequired: "İmzalı başlangıç kaydı yayımlandıktan sonra kayıt açılır.",
     registerWriter: "Writer olarak kaydol", registerVoter: "Voter olarak kaydol", registerOrganizer: "Organizer olarak kaydol", identityCutoff: "Kimlik sınırı",
     yourEvidence: "Uygunluk durumun", checkedByReferee: "Kayıttan sonra referee kontrol eder", referee: "Referee", notPublished: "Yayımlanmadı",
@@ -124,6 +128,7 @@ const i18n = {
 const state = {
   lang: localStorage.getItem("sonnet-lang") || "en",
   role: "writer",
+  roleFromRoom: "",
   keyJwk: null,
   cryptoKey: null,
   did: "",
@@ -404,7 +409,12 @@ async function refreshRegistration() {
   }) || null;
   state.registrationReceipt = findReceipt(state.registrationMessages, state.registration);
   state.registrationAccepted = recordStatus(parseRecord(state.registrationReceipt?.text)) === "accepted";
+  // A DID already registered in this contest keeps the role it registered
+  // with: one DID is one role and a writer cannot also vote. Overriding the
+  // selection is correct, but doing it silently reads as the picker being
+  // broken, so the reason is recorded for renderRegistration to show.
   const role = parseRecord(state.registration?.text)?.role;
+  state.roleFromRoom = role || "";
   if (role) state.role = role;
 }
 
@@ -600,11 +610,21 @@ function renderRegistration() {
   const badge = $("#registrationState");
   badge.className = `status status-${status === "none" ? "neutral" : status}`;
   badge.textContent = status === "accepted" ? t("accepted") : status === "rejected" ? t("rejected") : status === "pending" ? t("posted") : t("notRegistered");
-  const locked = Boolean(ownRecord);
+  // The rules fix the role on the first *accepted* registration, not on the
+  // first attempt. Locking on any posted record left a rejected registration
+  // holding the role forever, which is the one case the rules explicitly tell
+  // people to retry, and a pending one stopped anybody who picked wrong from
+  // correcting it before the referee had even answered.
+  const locked = state.registrationAccepted;
   $$('[data-role]').forEach((button) => {
     button.classList.toggle("active", button.dataset.role === state.role);
     button.disabled = locked;
   });
+  const note = $("#roleLockNote");
+  if (locked) note.textContent = `${t("roleLocked")} ${t(state.role) || state.role}`;
+  else if (state.roleFromRoom) note.textContent = `${t("roleAlreadyPosted")} ${t(state.roleFromRoom) || state.roleFromRoom}`;
+  else note.textContent = state.did ? t("roleOpen") : "";
+  note.classList.toggle("warn", Boolean(locked || state.roleFromRoom));
   $("#xField").classList.toggle("hidden", state.role !== "writer");
   const registerLabel = ownRecord && status !== "accepted"
     ? t("retryRegistration")
@@ -612,7 +632,7 @@ function renderRegistration() {
   $("#registerButton").querySelector("span").textContent = registerLabel;
   const canRegister = state.did && state.launch && phase() === "live" && status !== "accepted";
   $("#registerButton").disabled = !canRegister;
-  const message = !state.did ? t("registerFirst") : !state.launch ? t("officialLaunchNeeded") : locked ? (status === "accepted" ? t("accepted") : status === "rejected" ? t("rejected") : t("postedWaiting")) : phase() !== "live" ? (phase() === "waiting" ? t("startsIn") : t("contestClosed")) : "";
+  const message = !state.did ? t("registerFirst") : !state.launch ? t("officialLaunchNeeded") : status === "accepted" ? t("accepted") : status === "rejected" ? t("rejected") : status === "pending" ? t("postedWaiting") : phase() !== "live" ? (phase() === "waiting" ? t("startsIn") : t("contestClosed")) : "";
   $("#registrationMessage").textContent = message;
   $("#eligibilityValue").textContent = status === "accepted" ? t("accepted") : status === "rejected" ? t("rejected") : t("checkedByReferee");
 }

@@ -592,3 +592,17 @@ button:disabled, .disabled { opacity: .42; pointer-events: none; }
 .field-hint { margin: 4px 0 0; font-size: 10px; line-height: 1.5; color: var(--muted); }
 .field-hint.warn { color: var(--red); }
 .submit-note { margin: 10px 0 0; padding: 9px 11px; border-left: 2px solid var(--yellow); background: rgba(242, 204, 61, 0.06); font-size: 10px; line-height: 1.6; color: var(--muted); }
+
+/* The poem itself in the entry list. A voter is asked which poem the judges
+   will pick, so the poem has to be readable here, not just its entry id.
+   The row was a two-column grid built for a label and a button; it now stacks,
+   because the poem is the tall thing and it needs the full width. */
+.entry-item { grid-template-columns: minmax(0, 1fr); align-items: start; }
+.entry-item header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+/* Room for a few sonnets before the list starts scrolling. */
+.entry-list { max-height: 620px; }
+.entry-poem { margin: 8px 0 0; padding: 9px 11px; border-radius: 7px; background: #0c1114; border: 1px solid var(--line); font-family: inherit; font-size: 11px; line-height: 1.6; white-space: pre-wrap; color: var(--text); }
+.entry-poem.quiet { color: var(--muted); font-style: italic; border-style: dashed; }
+/* Only claimed when the rebuilt text hashes to what the team submitted. */
+.poem-badge { display: inline-block; justify-self: start; margin-top: 8px; padding: 2px 7px; border-radius: 5px; font-size: 9px; background: rgba(152, 164, 174, 0.12); color: var(--muted); }
+.poem-badge.ok { background: rgba(67, 196, 134, 0.12); color: var(--green); }

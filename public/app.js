@@ -48,6 +48,8 @@ const i18n = {
     finalVersion: "Final version", xPostIds: "X post IDs, one per line", checkPoem: "Check poem", openX: "Open X", submitPoem: "Submit poem",
     finishAndSubmit: "Finish and submit", voteHeading: "Read the entries and vote", voteNav: "Vote", stepFive: "Step 5",
     xPostLinks: "X post links, one per line",
+    loadingPoem: "Loading the poem from the team room...", poemUnavailable: "The poem could not be read from that team room.",
+    hashVerified: "Matches the submitted hash", hashUnverified: "Hash not confirmed",
     postLinkHint: "The account that wrote the last word publishes the poem on X, then pastes the link of each post here, in reading order.",
     wrongAccount: "This link is not the registered account. The referee refuses the submission:",
     submitNote: "Only the writer of the last word publishes and submits. Every link must be on that one account: a teammate posting from their own account does not count. Their X account is fixed at registration and cannot be changed later.",
@@ -93,6 +95,8 @@ const i18n = {
     finalVersion: "Son sürüm", xPostIds: "X post ID'leri, her satıra bir tane", checkPoem: "Şiiri kontrol et", openX: "X'i aç", submitPoem: "Şiiri gönder",
     finishAndSubmit: "Bitir ve gönder", voteHeading: "Katılımları oku ve oy ver", voteNav: "Oy ver", stepFive: "Adım 5",
     xPostLinks: "X gönderi linkleri, her satıra bir tane",
+    loadingPoem: "Şiir takım odasından yükleniyor...", poemUnavailable: "Bu takımın odasından şiir okunamadı.",
+    hashVerified: "Gönderilen hash ile aynı", hashUnverified: "Hash doğrulanamadı",
     postLinkHint: "Son kelimeyi yazan hesap şiiri X'te paylaşır, sonra her gönderinin linkini buraya okuma sırasıyla yapıştırır.",
     wrongAccount: "Bu link kayıtlı hesaba ait değil. Hakem gönderimi reddeder:",
     submitNote: "Şiiri sadece son kelimeyi yazan paylaşır ve sadece o gönderim yapabilir. Bütün linkler o tek hesaptan olmalı: takım arkadaşının kendi hesabından paylaşması saymaz. O kişinin X hesabı kayıtta sabitlenir, sonradan değiştirilemez.",
@@ -137,6 +141,7 @@ const state = {
   submissionMessages: [],
   resultMessages: [],
   dictionary: null,
+  entryPoems: new Map(),
   currentState: { version: 0, hash: "", line: 1, poem: "", lastContributor: "", acceptedWords: [], complete: false },
   team: loadTeam(),
   poem: { canonical: "", hash: "", valid: false, xText: "" },
@@ -757,15 +762,73 @@ function acceptedEntries() {
     const entryId = findDeep(record, ["entry_id"]);
     if (!entryId) return [];
     const submission = ownSubmissions.get(referencedRequest(record));
-    return [{ entryId: String(entryId), gameId: findDeep(record, ["game_id"]) || submission?.record.game_id || t("unknown"), message }];
+    return [{ entryId: String(entryId), gameId: findDeep(record, ["game_id"]) || submission?.record.game_id || t("unknown"), poemSha256: submission?.record.poem_sha256 || "", message }];
   });
+}
+
+/**
+ * Loads the poem behind an entry, from that team's own room.
+ *
+ * Voters are asked which poem the judges will pick, and until now the list gave
+ * them team names and an entry id to choose between. Every team room is public,
+ * the words are in it, and the line breaks come back from the ten-syllable rule,
+ * so the poem can be shown rather than described.
+ *
+ * The referee's submission carries poem_sha256. Rebuilt text is hashed and
+ * compared against it, so a poem is only labelled verified when it is provably
+ * the frozen one and not this tool's guess at it.
+ */
+async function loadEntryPoem(entry) {
+  if (state.entryPoems.has(entry.entryId)) return state.entryPoems.get(entry.entryId);
+  state.entryPoems.set(entry.entryId, { status: "loading" });
+  try {
+    await loadDictionary();
+    const room = `d-sonnet-2-team-${entry.gameId}`;
+    const data = await readRoom(room, ["sonnet.word.v1", "sonnet.receipt.v1"]);
+    const proposals = new Map();
+    const words = [];
+    for (const message of data.messages || []) {
+      const record = parseRecord(message.text);
+      if (!record) continue;
+      if (record.type === "sonnet.word.v1") proposals.set(record.request_id, record);
+      if (message.from !== state.refereeDid || recordStatus(record) !== "accepted") continue;
+      const proposal = proposals.get(referencedRequest(record));
+      const word = findDeep(record, ["accepted_word", "word"]) || proposal?.word;
+      if (word && WORD_RE.test(String(word))) words.push(String(word));
+    }
+    const poem = rebuildPoemLines(words);
+    const hash = poem ? await sha256Text(poem) : "";
+    const verified = Boolean(entry.poemSha256) && hash === entry.poemSha256;
+    const result = poem ? { status: "ready", poem, verified } : { status: "empty" };
+    state.entryPoems.set(entry.entryId, result);
+    return result;
+  } catch (error) {
+    const result = { status: "error", error: error.message };
+    state.entryPoems.set(entry.entryId, result);
+    return result;
+  }
+}
+
+function entryPoemMarkup(entry) {
+  const loaded = state.entryPoems.get(entry.entryId);
+  if (!loaded || loaded.status === "loading") return `<p class="entry-poem quiet">${escapeHtml(t("loadingPoem"))}</p>`;
+  if (loaded.status === "ready") {
+    const badge = loaded.verified
+      ? `<span class="poem-badge ok">${escapeHtml(t("hashVerified"))}</span>`
+      : `<span class="poem-badge">${escapeHtml(t("hashUnverified"))}</span>`;
+    return `${badge}<pre class="entry-poem">${escapeHtml(loaded.poem)}</pre>`;
+  }
+  return `<p class="entry-poem quiet">${escapeHtml(loaded.status === "empty" ? t("poemUnavailable") : loaded.error || t("poemUnavailable"))}</p>`;
 }
 
 function renderEntries() {
   const entries = acceptedEntries();
   const list = $("#entryList");
   list.className = entries.length ? "entry-list" : "entry-list empty-state";
-  list.innerHTML = entries.length ? entries.map((entry) => `<article class="entry-item"><div><strong>${escapeHtml(entry.gameId)}</strong><code>${escapeHtml(entry.entryId)}</code></div><button type="button" class="secondary" data-select-entry="${escapeHtml(entry.entryId)}">${escapeHtml(t("chooseEntry"))}</button></article>`).join("") : `<i data-lucide="inbox"></i><span>${escapeHtml(t("noEntries"))}</span>`;
+  list.innerHTML = entries.length ? entries.map((entry) => `<article class="entry-item"><header><div><strong>${escapeHtml(entry.gameId)}</strong><code>${escapeHtml(entry.entryId)}</code></div><button type="button" class="secondary" data-select-entry="${escapeHtml(entry.entryId)}">${escapeHtml(t("chooseEntry"))}</button></header>${entryPoemMarkup(entry)}</article>`).join("") : `<i data-lucide="inbox"></i><span>${escapeHtml(t("noEntries"))}</span>`;
+  // Fetched once per entry and cached, then the list redraws with the poem in it.
+  entries.filter((entry) => !state.entryPoems.has(entry.entryId))
+    .forEach((entry) => loadEntryPoem(entry).then(() => renderEntries()));
   $("#entryCount").textContent = String(entries.length);
   $("#voteButton").disabled = !(state.registrationAccepted && state.role === "voter" && $("#voteEntryId").value.trim() && phase() === "live");
 }

@@ -40,6 +40,9 @@ const i18n = {
     noTeams: "No recruiting teams found in the retained room history.", requestToJoin: "Request to join", stepThree: "Step 3", writeTogether: "Write together",
     refreshRoom: "Refresh room", noTeamLoaded: "No team loaded", openTeams: "Open teams", waitingRoster: "Waiting for roster", version: "Version", line: "Line",
     poemWaiting: "Accepted words will appear here.", nextWord: "Next word", didLetters: "DID letters", dictionary: "Dictionary", syllables: "Syllables",
+    yourLetters: "Letters you can use", youCanWrite: "Words you can write", syllablesLeft: "syllables left on this line",
+    yourTurn: "You can write now", notYourTurn: "You wrote last, someone else goes next", noSuggestions: "No word fits both your letters and the syllables left. Ask a teammate to take this turn.",
+    letterNote: "Every letter of your word must appear in your own DID. Reuse letters as often as you like.",
     refereeState: "Referee state", stateHash: "Previous state hash", proposeWord: "Propose word", roomActivity: "Room activity", planningMessage: "Planning message",
     stepFour: "Step 4", publishSubmitVote: "Publish, submit and vote", finalPoem: "Final poem", notChecked: "Not checked", exactFrozenPoem: "Exact frozen poem",
     finalVersion: "Final version", xPostIds: "X post IDs, one per line", checkPoem: "Check poem", openX: "Open X", submitPoem: "Submit poem",
@@ -75,6 +78,9 @@ const i18n = {
     noTeams: "Saklanan oda geçmişinde üye arayan takım bulunamadı.", requestToJoin: "Katılma isteği gönder", stepThree: "Adım 3", writeTogether: "Birlikte yaz",
     refreshRoom: "Odayı yenile", noTeamLoaded: "Takım yüklenmedi", openTeams: "Takımları aç", waitingRoster: "Kadro bekleniyor", version: "Sürüm", line: "Satır",
     poemWaiting: "Kabul edilen kelimeler burada görünecek.", nextWord: "Sonraki kelime", didLetters: "DID harfleri", dictionary: "Sözlük", syllables: "Hece",
+    yourLetters: "Kullanabileceğin harfler", youCanWrite: "Yazabileceğin kelimeler", syllablesLeft: "hece kaldı",
+    yourTurn: "Sıra sende, yazabilirsin", notYourTurn: "Son kelimeyi sen yazdın, sıra başkasında", noSuggestions: "Hem harflerine hem kalan heceye uyan kelime yok. Bu turu takım arkadaşın yazsın.",
+    letterNote: "Yazdığın kelimenin her harfi kendi DID'inde geçmeli. Aynı harfi istediğin kadar tekrar kullanabilirsin.",
     refereeState: "Referee durumu", stateHash: "Önceki state hash", proposeWord: "Kelime öner", roomActivity: "Oda hareketleri", planningMessage: "Planlama mesajı",
     stepFour: "Adım 4", publishSubmitVote: "Yayımla, gönder ve oy ver", finalPoem: "Son şiir", notChecked: "Kontrol edilmedi", exactFrozenPoem: "Kilitlemiş şiirin tam metni",
     finalVersion: "Son sürüm", xPostIds: "X post ID'leri, her satıra bir tane", checkPoem: "Şiiri kontrol et", openX: "X'i aç", submitPoem: "Şiiri gönder",
@@ -775,6 +781,123 @@ async function loadDictionary() {
 
 function bareWord(token) { return String(token || "").replace(/[,.;:!?]$/, "").toLowerCase(); }
 
+/**
+ * The a-z letters the connected DID allows, including the `did:key:` prefix,
+ * which is where `d`, `i`, `k`, `e` and `y` come from for everyone.
+ */
+function didLetters() {
+  return new Set([...String(state.did || "").toLowerCase()].filter((letter) => letter >= "a" && letter <= "z"));
+}
+
+/** Syllables still open on the line being written. A line closes at exactly 10. */
+function syllablesLeft() {
+  const lines = String(state.currentState.poem || "").split("\n");
+  const current = lines[lines.length - 1] || "";
+  const dictionary = state.dictionary;
+  if (!dictionary) return 10;
+  const used = current.split(/\s+/).filter(Boolean)
+    .reduce((sum, token) => sum + (dictionary.get(bareWord(token)) || 0), 0);
+  // A finished line leaves a whole new line open rather than zero room.
+  return used >= 10 ? 10 : 10 - used;
+}
+
+/**
+ * Everyday words, shown before the rest of the dictionary.
+ *
+ * CMUdict is a pronunciation dictionary, not a word list: it carries every
+ * single letter as an entry, plus abbreviations and tens of thousands of proper
+ * nouns. Ranking by length alone put "ac ad ae ag ah ai" at the top of the
+ * suggestions, which is worse than showing nothing. These are the words a
+ * sonnet is actually built from, so they lead and everything else follows.
+ */
+const COMMON_WORDS = `a i an as at be by do go he if in is it me my no of on or so to up us we
+all and any are but can day end eye far few for from get had has have her him his how its let
+like long look made make man may men more most much must new not now off old one only other our
+out own part put run said same say see she should since small some still such take than that the
+their them then there these they thing think this those though three time too two under up upon
+use very was way we well went were what when where which while who why will with word work world
+would year yes yet you your
+after again air air also always another answer around ask away back bad been before began being
+best between big black book both bring call came care change close cold come could country cut
+dark did does done door down draw dream drink each early earth easy eat even ever every face fact
+fall family feel feet fell felt find fine fire first five follow food foot found four free friend
+full gave give given god gold gone good got great green ground grow hand happy hard head hear
+heard heart heat held help here high hold home hope hour house hundred idea into keep kept kind
+knew know known land large last late laugh learn least leave left less life light line little
+live long lost love low mean meet men might mind miss money moon morning mother move music name
+near need never next night nothing number often once open order over page paper pass past peace
+people place plant play point poor power press rain read ready real red remember rest return
+right river road rock room rose round sat school sea seat second seem seen send sense sent set
+seven several shall shape share ship short shot show side sight sign silent sing sit six sky
+sleep slow snow soft sold song soon sound south space speak stand star start state stay step
+stood stop story street strong sun sure sweet table tail talk tall teach tell ten thank thin
+third thought thousand through throw thus tired today together told took top toward town tree
+true try turn understand until voice wait walk wall want war warm watch water wave wear week
+white whole wide wife wild wind window winter wish woman wonder wood word wrote young`
+  .split(/\s+/).filter(Boolean);
+
+const COMMON_RANK = new Map(COMMON_WORDS.map((word, index) => [word, index]));
+
+// CMUdict lists every letter of the alphabet on its own. Only two of them are
+// English words, so the rest would be refused by the referee as words anyway.
+const REAL_SINGLE_LETTERS = new Set(["a", "i"]);
+
+/**
+ * Words this writer could actually send right now.
+ *
+ * Filtered three ways at once, because a word that passes one check and fails
+ * another is what wastes a turn: every letter has to be in the DID, the word
+ * has to be in the frozen dictionary, and it has to fit the syllables left on
+ * the line. Everyday words lead, and the rest of the dictionary follows for
+ * anyone who types a prefix and knows what they are looking for.
+ */
+function suggestWords(limit = 60) {
+  const dictionary = state.dictionary;
+  if (!dictionary || !state.did) return [];
+  const letters = didLetters();
+  const budget = syllablesLeft();
+  const prefix = ($("#suggestFilter")?.value || "").trim().toLowerCase();
+  const out = [];
+  for (const [word, syllables] of dictionary) {
+    if (syllables < 1 || syllables > budget) continue;
+    if (prefix && !word.startsWith(prefix)) continue;
+    if (word.length > 12) continue;
+    if (word.length === 1 && !REAL_SINGLE_LETTERS.has(word)) continue;
+    // Without a prefix, stay on words people recognise; with one, the writer
+    // has said what they are after, so open the whole dictionary.
+    const rank = COMMON_RANK.get(word);
+    if (!prefix && rank === undefined) continue;
+    let ok = true;
+    for (const letter of word) {
+      if (letter === "'") continue;
+      if (!letters.has(letter)) { ok = false; break; }
+    }
+    if (ok) out.push({ word, syllables, rank: rank === undefined ? Number.MAX_SAFE_INTEGER : rank });
+  }
+  out.sort((a, b) => a.rank - b.rank || a.word.length - b.word.length || a.word.localeCompare(b.word));
+  return out.slice(0, limit);
+}
+
+function renderLetterHelper() {
+  const strip = $("#letterStrip");
+  if (!strip) return;
+  const letters = didLetters();
+  strip.innerHTML = "abcdefghijklmnopqrstuvwxyz".split("")
+    .map((letter) => `<span class="${letters.has(letter) ? "have" : "missing"}">${letter}</span>`).join("");
+
+  const yourTurn = !state.currentState.lastContributor || state.currentState.lastContributor !== state.did;
+  const hint = $("#turnHint");
+  hint.textContent = state.did ? (yourTurn ? t("yourTurn") : t("notYourTurn")) : "";
+  hint.className = `turn-hint ${state.did ? (yourTurn ? "go" : "wait") : ""}`;
+
+  const budget = syllablesLeft();
+  $("#syllableBudget").textContent = state.dictionary ? `(${budget} ${t("syllablesLeft")})` : "";
+  const list = suggestWords();
+  $("#suggestions").innerHTML = list.length
+    ? list.map((item) => `<button type="button" class="suggestion" data-word="${escapeHtml(item.word)}">${escapeHtml(item.word)}<b>${item.syllables}</b></button>`).join("")
+    : `<span class="suggest-empty">${escapeHtml(state.dictionary ? t("noSuggestions") : t("dictionaryLoading"))}</span>`;
+}
+
 async function validateWordInput() {
   const input = $("#wordInput").value.trim();
   const checks = $$("#wordChecks > span");
@@ -793,6 +916,7 @@ async function validateWordInput() {
   const notConsecutive = !state.currentState.lastContributor || state.currentState.lastContributor !== state.did;
   $("#sendWordButton").disabled = !(state.did && rosterIsReady() && state.team.generation > 0 && syntax && letters && syllables && validState && notConsecutive && phase() === "live");
   $("#sendChatButton").disabled = !(state.did && rosterIsReady() && state.team.generation > 0);
+  renderLetterHelper();
 }
 
 function canonicalPoem(raw) {
@@ -1048,6 +1172,15 @@ function bindEvents() {
   $("#copyInviteButton").addEventListener("click", copyInvite);
   $("#publishRecruitmentButton").addEventListener("click", publishRecruitment);
   $("#requestJoinButton").addEventListener("click", () => requestJoin());
+  $("#suggestFilter").addEventListener("input", renderLetterHelper);
+  // A suggestion is only a shortcut into the same input, so it still goes
+  // through every check before the button enables.
+  $("#suggestions").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-word]");
+    if (!button) return;
+    $("#wordInput").value = button.dataset.word;
+    validateWordInput();
+  });
   $("#wordInput").addEventListener("input", validateWordInput);
   $("#wordVersion").addEventListener("input", validateWordInput);
   $("#stateHash").addEventListener("input", validateWordInput);

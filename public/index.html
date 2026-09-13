@@ -172,6 +172,23 @@
               </div>
               <div id="poemCanvas" class="poem-canvas"><span data-i18n="poemWaiting">Accepted words will appear here.</span></div>
               <div class="word-composer">
+                <!-- The three checks below only answer "was that word allowed".
+                     This panel answers the question a writer actually has before
+                     typing: which letters am I allowed to use, how much of the
+                     line is left, and what can I write that fits. -->
+                <section id="letterHelper" class="letter-helper">
+                  <header>
+                    <span data-i18n="yourLetters">Letters you can use</span>
+                    <b id="turnHint" class="turn-hint"></b>
+                  </header>
+                  <div id="letterStrip" class="letter-strip"></div>
+                  <p id="letterNote" class="letter-note" data-i18n="letterNote">Every letter of your word must appear in your own DID. Reuse letters as often as you like.</p>
+                  <div class="suggest-head">
+                    <span><span data-i18n="youCanWrite">Words you can write</span> <b id="syllableBudget"></b></span>
+                    <input id="suggestFilter" placeholder="a, ab, abo..." autocomplete="off" spellcheck="false">
+                  </div>
+                  <div id="suggestions" class="suggestions"></div>
+                </section>
                 <label class="word-input"><span data-i18n="nextWord">Next word</span><input id="wordInput" placeholder="word" autocomplete="off" spellcheck="false"></label>
                 <div id="wordChecks" class="word-checks">
                   <span><i data-lucide="circle"></i><span data-i18n="didLetters">DID letters</span></span>

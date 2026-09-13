@@ -538,3 +538,32 @@ button:disabled, .disabled { opacity: .42; pointer-events: none; }
   .state-fields { grid-template-columns: 1fr; }
   .line-checks { grid-template-columns: 1fr; }
 }
+
+/* Letter helper: what a writer can use, before they type rather than after.
+   The three word-checks above it answer "was that allowed"; this answers
+   "what am I allowed to write", which is the question people actually have
+   once the room opens. */
+.letter-helper { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: rgba(16, 20, 25, 0.6); }
+.letter-helper > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.turn-hint { font-size: 10px; text-transform: none; letter-spacing: 0; }
+.turn-hint.go { color: var(--green); }
+.turn-hint.wait { color: var(--yellow); }
+
+.letter-strip { display: flex; flex-wrap: wrap; gap: 3px; margin: 8px 0 6px; }
+.letter-strip span { width: 19px; height: 19px; display: grid; place-items: center; border-radius: 4px; font-size: 11px; font-weight: 600; }
+.letter-strip .have { background: var(--cyan-dark); color: var(--cyan); }
+/* Dimmed rather than hidden: seeing which letters you lack is what explains
+   why a word was refused. */
+.letter-strip .missing { background: transparent; color: #39424c; text-decoration: line-through; }
+
+.letter-note { margin: 0 0 10px; font-size: 10px; line-height: 1.5; color: var(--muted); }
+
+.suggest-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.suggest-head b { color: var(--yellow); text-transform: none; letter-spacing: 0; }
+.suggest-head input { width: 110px; padding: 4px 7px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 11px; text-transform: none; letter-spacing: 0; }
+
+.suggestions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; max-height: 132px; overflow-y: auto; }
+.suggestion { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font-size: 11px; cursor: pointer; }
+.suggestion:hover { border-color: var(--cyan); color: var(--cyan); }
+.suggestion b { color: var(--muted); font-size: 9px; font-weight: 600; }
+.suggest-empty { font-size: 10px; color: var(--muted); line-height: 1.5; }

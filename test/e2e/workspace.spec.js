@@ -297,16 +297,19 @@ test("says why the ballot button will not sign", async ({ page }) => {
   await page.locator('[data-view-target="submit"]').click();
   await page.locator("#voteEntryId").fill("wordcore");
   // The entry is chosen and the role is right, so the only thing left is the wait,
-  // and that is what the note has to name.
-  await expect(page.locator("#voteNote")).toContainText("has not accepted your voter registration yet");
-  await expect(page.locator("#voteButton")).toBeDisabled();
+  // and that is what the note has to name. The wait is not a refusal though: the
+  // referee decides each ballot for itself, so the button still signs.
+  await expect(page.locator("#voteNote")).toContainText("has not answered your voter registration yet");
+  await expect(page.locator("#voteButton")).toBeEnabled();
 
-  // Once the referee answers, the note clears and the button signs.
+  // Once the referee answers, the note clears and the caution goes with it.
   acceptRegistration = true;
   const registration = (rooms.get("mb-sonnet-2-registration") || []).map((message) => JSON.parse(message.text)).find((record) => record.type === "sonnet.register.v1");
   addMessage("mb-sonnet-2-registration", REFEREE, JSON.stringify({ type: "sonnet.receipt.v1", contest_id: "sonnet-2", request_id: registration.request_id, role: "voter", status: "accepted" }));
-  await expect(page.locator("#voteButton")).toBeEnabled({ timeout: 20000 });
-  await expect(page.locator("#voteNote")).toHaveText("");
+  // The button no longer changes state here, so the note is what has to be waited
+  // on: it is the only thing that still moves when the receipt lands.
+  await expect(page.locator("#voteNote")).toHaveText("", { timeout: 20000 });
+  await expect(page.locator("#voteButton")).toBeEnabled();
 });
 
 test("blames the queue, not the key, while the referee is behind", async ({ page }) => {

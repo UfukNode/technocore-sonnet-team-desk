@@ -35,7 +35,7 @@ const i18n = {
     refereeBehind: "The referee is a long way behind right now: it is answering only a small share of the registrations arriving, so almost nobody is getting a quick answer. This wait does not tell you anything about your DID, and registering again would only add a second request behind the first. Leave the page open, it keeps checking by itself.",
     watchingForReceipt: "This page is watching for the answer and will fill it in by itself, usually within a few seconds. Do not reload: your private key is held in this tab only, so reloading loses it and you have to choose the file again.", silentlyIgnored: "The referee normally answers in a few seconds and it has not answered this. It does not refuse a key that has no signed record from before 11 September 12:00 UTC, it ignores it, so a registration that stays unanswered usually means the key is too new for this contest. This is a guess from the wait, not something the referee said.", cutoffExplainer: "This key has no signed record from before 11 September 12:00 UTC, so it cannot write or vote in this contest. Trying again will not change it. Use an older DID.",
     roleLocked: "This DID is already registered for this contest. One DID is one role, and its role is:",
-    roleAlreadyPosted: "This DID already has a registration waiting on the referee, for the role:", roleOpen: "Pick a role, then register. It locks once the referee accepts it.",
+    roleAlreadyPosted: "This DID already has a registration waiting on the referee, for the role:", roleOpen: "Pick a role, then register. Writer is only the default on this screen: to vote, switch to Voter first. One DID holds one role and it locks for good once the referee accepts it.",
     role: "Role", writer: "Writer", voter: "Voter", organizer: "Organizer", xAccount: "Your public X account", launchRequired: "Registration opens after the signed launch record appears.",
     registerWriter: "Register as writer", registerVoter: "Register as voter", registerOrganizer: "Register as organizer", identityCutoff: "Identity cutoff",
     yourEvidence: "Your eligibility", checkedByReferee: "Checked by the referee after registration", referee: "Referee", notPublished: "Not published",
@@ -60,7 +60,7 @@ const i18n = {
     submitNote: "Only the writer of the last word publishes and submits. Every link must be on that one account: a teammate posting from their own account does not count. Their X account is fixed at registration and cannot be changed later.",
     onePost: "One post, it fits", postsInOrder: "posts, in this order", copy: "Copy", copied: "Post copied.",
     poemAutoFilled: "The accepted poem was filled in for you. Check it, publish it, then paste the post IDs.",
-    voteNeedsKey: "Choose your private key JSON first, on the Connect screen.", voteNotOpen: "Voting is not open yet.", voteClosed: "Voting has closed.", voteWrongRole: "This DID is registered for the role {role}, and only a voter can sign a ballot. One DID holds one role and a writer cannot also vote, so voting needs a different DID, registered as a voter.", voteRejected: "The referee refused this registration, so no ballot from this DID will count. See the reason on the Connect screen.", voteWaiting: "The referee has not accepted your voter registration yet, and a ballot only counts once it has. The referee is running behind: registrations are being answered about half an hour after they arrive. This page keeps checking by itself, leave it open.", voteNeedsEntry: "Pick an entry from the list, or type its ID above.",
+    voteNeedsKey: "Choose your private key JSON first, on the Connect screen.", voteNotOpen: "Voting is not open yet.", voteClosed: "Voting has closed.", voteWrongRole: "This DID is registered for the role {role}, and only a voter can sign a ballot. One DID holds one role and a writer cannot also vote, so voting needs a different DID, registered as a voter.", voteRejected: "The referee refused this registration, so no ballot from this DID will count. See the reason on the Connect screen.", voteUnconfirmed: "The referee has not answered your voter registration yet. You can still sign a ballot: the referee answers every ballot in the votes room on its own, and that answer is the one that counts. Its reply appears here within a few seconds.", ballotAccepted: "Your ballot was accepted by the referee, for entry {entry}.", ballotRefused: "The referee refused your ballot: {reason}", voteNeedsEntry: "Pick an entry from the list, or type its ID above.",
     publicEntries: "Public entries", noEntries: "No accepted entries found.", entryId: "Entry ID", castVote: "Sign public ballot", finalStage: "Final stage",
     contestResults: "Contest results", noResults: "The referee has not published results.", paymentDestination: "Payment destination from the announced method", signClaim: "Sign prize claim",
     launchNotVerified: "Launch not verified", startsIn: "Starts in", contestLive: "Contest live", contestClosed: "Contest closed", keyLoaded: "DID imported.",
@@ -91,7 +91,7 @@ const i18n = {
     refereeBehind: "Referee şu an çok geride: gelen kayıtların yalnızca küçük bir kısmını cevaplıyor, yani neredeyse hiç kimse hızlı cevap alamıyor. Bu bekleme DIDiniz hakkında bir şey söylemiyor ve tekrar kaydolmak sadece ilkinin arkasına ikinci bir istek ekler. Sayfayı açık bırakın, kendisi kontrol etmeye devam ediyor.",
     watchingForReceipt: "Bu sayfa cevabı kendisi bekliyor ve geldiğinde kendisi yazacak, genelde birkaç saniye içinde. Sayfayı yenilemeyin: özel anahtarınız yalnızca bu sekmede tutuluyor, yenilerseniz kaybolur ve dosyayı tekrar seçmeniz gerekir.", silentlyIgnored: "Referee normalde birkaç saniyede cevap verir ve buna cevap vermedi. 11 Eylül 12:00 UTC öncesine ait imzalı kaydı olmayan bir anahtarı reddetmiyor, yok sayıyor. Yani cevapsız kalan bir kayıt genelde anahtarın bu yarışma için çok yeni olduğu anlamına gelir. Bu, bekleme süresinden çıkarılmış bir tahmin, referee'nin söylediği bir şey değil.", cutoffExplainer: "Bu anahtarın 11 Eylül 12:00 UTC öncesine ait imzalı bir kaydı yok, bu yüzden bu yarışmada ne yazabilir ne oy verebilir. Tekrar denemek sonucu değiştirmez. Daha eski bir DID kullanın.",
     roleLocked: "Bu DID bu yarışmaya zaten kayıtlı. Bir DID tek rol alır, rolü:",
-    roleAlreadyPosted: "Bu DID için referee'yi bekleyen bir kayıt zaten var, rolü:", roleOpen: "Rolü seçin, sonra kaydolun. Referee kabul edince kilitlenir.",
+    roleAlreadyPosted: "Bu DID için referee'yi bekleyen bir kayıt zaten var, rolü:", roleOpen: "Rolü seçin, sonra kaydolun. Writer bu ekranda yalnızca varsayılan: oy verecekseniz önce Voter'a geçin. Bir DID tek rol taşır ve referee kabul ettiğinde kalıcı olarak kilitlenir.",
     role: "Rol", writer: "Writer", voter: "Voter", organizer: "Organizer", xAccount: "Açık X hesabın", launchRequired: "İmzalı başlangıç kaydı yayımlandıktan sonra kayıt açılır.",
     registerWriter: "Writer olarak kaydol", registerVoter: "Voter olarak kaydol", registerOrganizer: "Organizer olarak kaydol", identityCutoff: "Kimlik sınırı",
     yourEvidence: "Uygunluk durumun", checkedByReferee: "Kayıttan sonra referee kontrol eder", referee: "Referee", notPublished: "Yayımlanmadı",
@@ -116,7 +116,7 @@ const i18n = {
     submitNote: "Şiiri sadece son kelimeyi yazan paylaşır ve sadece o gönderim yapabilir. Bütün linkler o tek hesaptan olmalı: takım arkadaşının kendi hesabından paylaşması saymaz. O kişinin X hesabı kayıtta sabitlenir, sonradan değiştirilemez.",
     onePost: "Tek gönderi, sığıyor", postsInOrder: "gönderi, bu sırayla", copy: "Kopyala", copied: "Gönderi kopyalandı.",
     poemAutoFilled: "Kabul edilen şiir sizin için dolduruldu. Kontrol edin, paylaşın, sonra post ID'lerini yapıştırın.",
-    voteNeedsKey: "Önce Connect ekranından özel anahtar JSON dosyanızı seçin.", voteNotOpen: "Oylama henüz açılmadı.", voteClosed: "Oylama kapandı.", voteWrongRole: "Bu DID {role} rolüyle kayıtlı, oy pusulasını ise yalnızca voter imzalayabilir. Bir DID tek bir rol taşır ve writer olan biri oy veremez, yani oy vermek için voter olarak kayıtlı başka bir DID gerekiyor.", voteRejected: "Referee bu kaydı reddetti, bu DIDden gelen oy sayılmaz. Sebebi Connect ekranında yazıyor.", voteWaiting: "Referee voter kaydınızı henüz kabul etmedi, oy ise ancak kabul edildikten sonra sayılıyor. Referee şu an geride: kayıtlar geldikten yaklaşık yarım saat sonra cevaplanıyor. Bu sayfa kendisi kontrol etmeye devam ediyor, açık bırakın.", voteNeedsEntry: "Listeden bir katılım seçin veya ID sini yukarıya yazın.",
+    voteNeedsKey: "Önce Connect ekranından özel anahtar JSON dosyanızı seçin.", voteNotOpen: "Oylama henüz açılmadı.", voteClosed: "Oylama kapandı.", voteWrongRole: "Bu DID {role} rolüyle kayıtlı, oy pusulasını ise yalnızca voter imzalayabilir. Bir DID tek bir rol taşır ve writer olan biri oy veremez, yani oy vermek için voter olarak kayıtlı başka bir DID gerekiyor.", voteRejected: "Referee bu kaydı reddetti, bu DIDden gelen oy sayılmaz. Sebebi Connect ekranında yazıyor.", voteUnconfirmed: "Referee voter kaydınızı henüz cevaplamadı. Yine de oy imzalayabilirsiniz: referee her oyu oy odasında kendisi cevaplıyor ve sayılan cevap o. Cevabı birkaç saniye içinde burada görünür.", ballotAccepted: "Oyunuz referee tarafından kabul edildi, katılım: {entry}.", ballotRefused: "Referee oyunuzu reddetti: {reason}", voteNeedsEntry: "Listeden bir katılım seçin veya ID sini yukarıya yazın.",
     publicEntries: "Açık katılımlar", noEntries: "Kabul edilmiş katılım bulunamadı.", entryId: "Katılım ID", castVote: "Açık oyu imzala", finalStage: "Son aşama",
     contestResults: "Yarışma sonuçları", noResults: "Referee henüz sonuç yayımlamadı.", paymentDestination: "Duyurulan yönteme uygun ödeme adresi", signClaim: "Ödül talebini imzala",
     launchNotVerified: "Başlangıç doğrulanmadı", startsIn: "Başlamasına", contestLive: "Yarışma aktif", contestClosed: "Yarışma kapandı", keyLoaded: "DID içe aktarıldı.",
@@ -158,6 +158,7 @@ const state = {
   discoveryMessages: [],
   teamMessages: [],
   submissionMessages: [],
+  ballotMessages: [],
   resultMessages: [],
   dictionary: null,
   entryPoems: new Map(),
@@ -568,6 +569,67 @@ function saveRegistration(message) {
   }
 }
 
+/**
+ * The public half of a did:key is the key itself: the string is the multicodec
+ * prefix and the 32 raw bytes in base58. So a message can be checked against the
+ * DID that claims to have written it without asking anyone.
+ */
+async function didPublicKey(did) {
+  const bytes = base58Decode(String(did).replace(/^did:key:z/, ""));
+  if (bytes.length !== 34 || bytes[0] !== 0xed || bytes[1] !== 0x01) return null;
+  return crypto.subtle.importKey("raw", bytes.slice(2), { name: "Ed25519" }, false, ["verify"]);
+}
+
+async function verifyMessage(room, message) {
+  try {
+    const key = await didPublicKey(message.from);
+    if (!key) return false;
+    const canonical = `${room}|${message.nonce}|${message.text}`;
+    return await crypto.subtle.verify("Ed25519", key, base64urlToBytes(message.sig), new TextEncoder().encode(canonical));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The referee's answer has to be kept too, and for the same reason the request is:
+ * the room is a ring. Under the current flood it holds about half an hour, so an
+ * accepted voter who closes the tab and comes back finds neither their registration
+ * nor the receipt that accepted it, and the screen has no way to tell them apart
+ * from someone who never registered.
+ *
+ * Unlike the registration, a forged copy here would matter: it is the thing the
+ * screen reads acceptance from. So it is only trusted after its Ed25519 signature
+ * verifies against the referee's own DID, which is the same check the room would
+ * have supported. Anyone can write a receipt; nobody else can sign one.
+ */
+const receiptKey = () => `sonnet-receipt-${state.did}`;
+
+async function rememberedReceipt(requestId) {
+  if (!state.did || !state.refereeDid) return null;
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(receiptKey()) || "null");
+  } catch {
+    return null;
+  }
+  if (!saved || saved.from !== state.refereeDid || !saved.sig) return null;
+  const record = parseRecord(saved.text);
+  if (record?.type !== "sonnet.receipt.v1" || record.contest_id !== CONTEST.id) return null;
+  if (record.sender_did !== state.did) return null;
+  if (requestId && record.request_id !== requestId) return null;
+  return await verifyMessage(ROOMS.registration, saved) ? saved : null;
+}
+
+function saveReceipt(message) {
+  if (!state.did || !message || message.from !== state.refereeDid) return;
+  try {
+    localStorage.setItem(receiptKey(), JSON.stringify(message));
+  } catch {
+    // Same as above: the copy is a convenience, the room stays the record.
+  }
+}
+
 async function refreshRegistration() {
   if (!state.did) {
     state.registrationMessages = [];
@@ -602,12 +664,19 @@ async function refreshRegistration() {
   state.registrationMessages = messages;
   state.registration = ownRegistration(state.registrationMessages) || null;
   state.registrationReceipt = findReceipt(state.registrationMessages, state.registration);
+  // The room answered, so that answer is kept: it is the copy that survives the
+  // ring. When the room has nothing, the kept one stands in, but only after its
+  // referee signature verifies.
+  if (state.registrationReceipt) saveReceipt(state.registrationReceipt);
+  else state.registrationReceipt = await rememberedReceipt(firstRequestId);
   state.registrationAccepted = recordStatus(parseRecord(state.registrationReceipt?.text)) === "accepted";
   // A DID already registered in this contest keeps the role it registered
   // with: one DID is one role and a writer cannot also vote. Overriding the
   // selection is correct, but doing it silently reads as the picker being
   // broken, so the reason is recorded for renderRegistration to show.
-  const role = parseRecord(state.registration?.text)?.role;
+  // The receipt names the role too, and it outlives the registration here, so it
+  // is the fallback once the request itself has left the room.
+  const role = parseRecord(state.registration?.text)?.role || parseRecord(state.registrationReceipt?.text)?.role;
   state.roleFromRoom = role || "";
   if (role) state.role = role;
 }
@@ -680,6 +749,20 @@ async function refreshTeamRoom() {
 async function refreshEntries() {
   const room = await readRoom(ROOMS.submissions);
   state.submissionMessages = room.messages || [];
+  await refreshBallot();
+}
+
+/**
+ * Our own ballot and the referee's answer to it. Searched by DID, so the votes room
+ * can hold ten thousand ballots and this still costs one narrow read.
+ */
+async function refreshBallot() {
+  if (!state.did) {
+    state.ballotMessages = [];
+    return;
+  }
+  const room = await readRoom(ROOMS.votes, state.did);
+  state.ballotMessages = room.messages || [];
 }
 
 async function refreshResults() {
@@ -1073,12 +1156,44 @@ function voteBlocker() {
   if (!state.did) return t("voteNeedsKey");
   if (phase() === "waiting") return t("voteNotOpen");
   if (phase() === "closed") return t("voteClosed");
-  const status = recordStatus(parseRecord(state.registrationReceipt?.text));
-  if (state.role !== "voter") return t("voteWrongRole").replace("{role}", state.role || "?");
-  if (status === "rejected") return t("voteRejected");
-  if (!state.registrationAccepted) return t("voteWaiting");
+  // Only a role the rooms actually record can block, not the one the picker happens
+  // to be showing. The picker is a draft until the referee answers it, and reading
+  // it as a verdict locked out voters who had simply not been answered yet.
+  if (state.roleFromRoom && state.roleFromRoom !== "voter") return t("voteWrongRole").replace("{role}", state.roleFromRoom);
+  if (recordStatus(parseRecord(state.registrationReceipt?.text)) === "rejected") return t("voteRejected");
   if (!$("#voteEntryId").value.trim()) return t("voteNeedsEntry");
   return "";
+}
+
+/**
+ * Not a blocker, a caution. Waiting on the registration used to disable the button,
+ * and that was this tool refusing on the referee's behalf, which it is not entitled
+ * to do: the referee answers every ballot in the votes room on its own, and in the
+ * room as it stands thousands of ballots are accepted while voter registrations go
+ * unanswered under the flood. A voter held back by this screen was losing a vote the
+ * referee would have counted. So the ballot goes, and its actual answer is shown.
+ */
+function voteCaution() {
+  if (voteBlocker() || state.registrationAccepted) return "";
+  return t("voteUnconfirmed");
+}
+
+/** The referee's answer to our own ballot, which is the only verdict that counts. */
+function ballotVerdict() {
+  if (!state.did || !state.refereeDid) return "";
+  const receipt = [...state.ballotMessages].reverse().find((message) => {
+    if (message.from !== state.refereeDid) return false;
+    const record = parseRecord(message.text);
+    // recordStatus answers "none" for anything that is not a verdict, and "none" is
+    // a truthy string, so the decision itself has to be the test.
+    return record?.contest_id === CONTEST.id && record.sender_did === state.did
+      && ["accepted", "rejected"].includes(recordStatus(record));
+  });
+  if (!receipt) return "";
+  const record = parseRecord(receipt.text);
+  return recordStatus(record) === "accepted"
+    ? t("ballotAccepted").replace("{entry}", record.entry_id || "?")
+    : t("ballotRefused").replace("{reason}", record.reason || t("noReasonGiven"));
 }
 
 function renderEntries() {
@@ -1090,8 +1205,11 @@ function renderEntries() {
   entries.filter((entry) => !state.entryPoems.has(entry.entryId))
     .forEach((entry) => loadEntryPoem(entry).then(() => renderEntries()));
   $("#entryCount").textContent = String(entries.length);
-  $("#voteButton").disabled = !(state.registrationAccepted && state.role === "voter" && $("#voteEntryId").value.trim() && phase() === "live");
-  $("#voteNote").textContent = voteBlocker();
+  // One expression decides both, so the button and the sentence beside it can no
+  // longer disagree about why.
+  const blocker = voteBlocker();
+  $("#voteButton").disabled = Boolean(blocker);
+  $("#voteNote").textContent = [blocker || voteCaution(), ballotVerdict()].filter(Boolean).join(" ");
 }
 
 function renderResults() {
@@ -1614,12 +1732,17 @@ async function submitPoem() {
 }
 
 async function castVote() {
-  if (!(state.registrationAccepted && state.role === "voter")) return showToast(t("voterOnly"));
+  const blocker = voteBlocker();
+  if (blocker) return showToast(blocker);
   const entryId = $("#voteEntryId").value.trim();
   if (!entryId) return;
   try {
     await postSigned(ROOMS.votes, { type: "sonnet.ballot.v1", contest_id: CONTEST.id, voter_did: state.did, entry_id: entryId, request_id: requestId("ballot") });
     showToast(t("ballotPosted"));
+    // The answer lands in the votes room a moment later, so it is fetched and shown
+    // rather than left for the next poll.
+    await refreshBallot();
+    renderEntries();
   } catch (error) { showToast(error.message); }
 }
 
